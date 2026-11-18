@@ -110,7 +110,14 @@
 
         kbd { display: inline-flex; align-items: center; justify-content: center; background: #f3f4f6; border: 1px solid #d1d5db; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 10px; color: #374151; min-width: 20px; }
 
-        .board-container { flex: 1; padding: 20px; overflow-x: auto; overflow-y: hidden; display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+        .board-container { flex: 1; padding: 20px; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .board-row { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; flex-shrink: 0; }
+        .board-row .column { max-height: max(340px, calc(100vh - 230px)); }
+        .column[data-status="backlog"] { flex: none; width: 100%; max-height: none; }
+        .column[data-status="backlog"] .column-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; align-content: start; overflow-y: visible; }
+        .column[data-status="backlog"] .task-card { margin-bottom: 0; }
+        .column[data-status="backlog"] .add-task-inline { grid-column: 1 / -1; }
+        .column[data-status="backlog"] .drop-placeholder { margin: 0; }
 
         .column { background-color: var(--bg-col); border-radius: 10px; flex: 1; min-width: 240px; max-height: 100%; display: flex; flex-direction: column; transition: background 0.2s ease, box-shadow 0.2s ease; }
         .column.drag-target { background-color: #d8ddf0; box-shadow: inset 0 0 0 2px rgba(37,99,235,0.25); }
@@ -211,6 +218,7 @@
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
 
+        .column[data-status="backlog"] .column-status-bar { background: #a78bfa; }
         .column[data-status="todo"] .column-status-bar { background: #6b7280; }
         .column[data-status="inprogress"] .column-status-bar { background: #f59e0b; }
         .column[data-status="done"] .column-status-bar { background: #10b981; }
@@ -218,6 +226,41 @@
 
         /* hidden file input */
         #importFileInput { display: none; }
+        .badge-blocked { background: #fee2e2; color: #b91c1c; }
+        .badge-ready { background: #dcfce7; color: #15803d; }
+        .task-assignee { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+        .avatar { width: 22px; height: 22px; border-radius: 50%; color: white; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .task-assignee span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-deps { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+        .task-deps div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-deps .dep-done { text-decoration: line-through; opacity: 0.7; }
+        .dep-wrap { position: relative; }
+        .dep-suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 60; max-height: 180px; overflow-y: auto; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-sm); padding: 4px; }
+        .dep-suggest div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 8px; border-radius: 5px; font-size: 13px; cursor: pointer; }
+        .dep-suggest div.hl, .dep-suggest div:hover { background: #eff6ff; }
+        .dep-suggest .dep-status { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        .dep-suggest .dep-empty { color: var(--text-muted); cursor: default; }
+        .dep-suggest .dep-empty:hover { background: none; }
+        .tag.dep-chip { background: #fef3c7; color: #92400e; max-width: 100%; }
+        .tag.dep-chip.is-done { background: #dcfce7; color: #166534; text-decoration: line-through; }
+        .filter-bar { display: flex; align-items: center; gap: 10px; padding: 10px 20px 0; flex-shrink: 0; font-size: 12px; color: var(--text-muted); }
+        .filter-dd { position: relative; }
+        .filter-dd-btn { padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; background: white; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 6px; max-width: 240px; }
+        .filter-dd-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .filter-dd-btn.active { border-color: var(--primary); background: #eff6ff; }
+        .filter-dd-btn::after { content: '▾'; font-size: 10px; color: var(--text-muted); }
+        .filter-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 50; min-width: 180px; max-height: 260px; overflow-y: auto; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-sm); padding: 4px; }
+        .filter-dd-panel label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; font-size: 13px; color: var(--text-main); cursor: pointer; white-space: nowrap; }
+        .filter-dd-panel label:hover { background: #f3f4f6; }
+        .filter-dd-empty { padding: 6px 8px; font-size: 13px; color: var(--text-muted); }
+        .task-card.filtered-out { display: none; }
+        .tag { font-size: 11px; padding: 1px 8px; border-radius: 4px; background: #eef2ff; color: #4338ca; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+        .tag-editor { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; background: white; }
+        .tag-editor:focus-within { border-color: var(--border-focus); box-shadow: var(--shadow-focus); }
+        .tag-editor .tag { display: inline-flex; align-items: center; gap: 4px; }
+        .tag-editor .tag button { border: none; background: none; color: inherit; cursor: pointer; padding: 0; font-size: 13px; line-height: 1; }
+        .form-group .tag-editor input { border: none; box-shadow: none; flex: 1; min-width: 100px; padding: 4px 2px; }
     </style>
 </head>
 <body>
@@ -282,7 +325,14 @@
                 </div>
             </header>
 
+            <div class="filter-bar" id="filterBar" style="display:none;">
+                <span>Filter:</span>
+                <div id="filterDropdowns" style="display:flex;gap:10px;align-items:center;"></div>
+                <button class="btn btn-ghost" id="clearFilterBtn" onclick="clearFilters()" style="display:none;padding:4px 10px;">Clear</button>
+            </div>
+
             <div class="board-container" id="board" style="display:none;">
+                <div class="board-row">
                 <div class="column" data-status="todo">
                     <div class="column-header">
                         <div style="display:flex;align-items:center;gap:8px;">
@@ -312,6 +362,17 @@
                         <span class="count" id="count-done">0</span>
                     </div>
                     <div class="column-body" data-status="done"></div>
+                </div>
+                </div>
+                <div class="column" data-status="backlog">
+                    <div class="column-header">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div class="column-status-bar"></div>
+                            <span>Backlog</span>
+                        </div>
+                        <span class="count" id="count-backlog">0</span>
+                    </div>
+                    <div class="column-body" data-status="backlog"></div>
                 </div>
             </div>
 
@@ -357,10 +418,34 @@
                     <div class="form-group" id="statusGroup" style="flex:1;">
                         <label>Status</label>
                         <select id="taskStatus">
+                            <option value="backlog">Backlog</option>
                             <option value="todo">To Do</option>
                             <option value="inprogress">In Progress</option>
                             <option value="done">Done</option>
                         </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Assignee <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                    <input type="text" id="taskAssignee" list="assigneeList" placeholder="Who is working on this?">
+                    <datalist id="assigneeList"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>Tags <span style="text-transform:none;font-weight:400;color:#9ca3af;">(press Enter or comma to add)</span></label>
+                    <div class="tag-editor" id="tagEditor">
+                        <span id="tagChips" style="display:contents;"></span>
+                        <input type="text" id="taskTagInput" list="tagList" placeholder="Add a tag...">
+                    </div>
+                    <datalist id="tagList"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>Depends on <span style="text-transform:none;font-weight:400;color:#9ca3af;">(open tasks that must be done first)</span></label>
+                    <div class="dep-wrap">
+                        <div class="tag-editor" id="depEditor">
+                            <span id="depChips" style="display:contents;"></span>
+                            <input type="text" id="taskDepInput" placeholder="Search open tasks to add...">
+                        </div>
+                        <div class="dep-suggest" id="depSuggest" style="display:none;"></div>
                     </div>
                 </div>
                 <div class="modal-actions">
@@ -495,9 +580,15 @@
     <div id="toastContainer"></div>
 
     <script>
-        const COLUMNS = ['todo', 'inprogress', 'done'];
+        const COLUMNS = ['backlog', 'todo', 'inprogress', 'done'];
         let appData = { projects: [], tasks: [], activeProjectId: null };
         let selectedTaskId = null;
+        let filters = { assignee: [], priority: [], tag: [] };
+        let openFilter = null;
+        let editingTags = [];
+        let editingDeps = [];
+        let editingTaskId = null;
+        let depHighlight = 0;
         let keySequence = '';
         let keyTimer = null;
 
@@ -509,9 +600,7 @@
         function init() {
             const stored = localStorage.getItem('myKanbanData_v1');
             if (stored) {
-                try { appData = JSON.parse(stored); } catch(e) { createDemoData(); }
-            } else {
-                createDemoData();
+                try { appData = JSON.parse(stored); } catch(e) { /* unreadable data: start with an empty board */ }
             }
             const isCollapsed = localStorage.getItem('myKanbanSidebar') === 'true';
             if (isCollapsed) document.getElementById('sidebar').classList.add('collapsed');
@@ -519,19 +608,6 @@
             renderBoard();
             setupKeyboard();
             setupImportDrop();
-        }
-
-        function createDemoData() {
-            const id = generateId();
-            appData.projects.push({ id, name: 'My Project' });
-            appData.tasks.push(
-                { id: generateId(), projectId: id, title: 'Explore the board', desc: 'Try dragging cards into other columns, or use Shift+Arrow keys.', priority: 'med', status: 'todo' },
-                { id: generateId(), projectId: id, title: 'Add a new task', desc: 'Press N then T, or click Add Task in the top right.', priority: 'low', status: 'todo' },
-                { id: generateId(), projectId: id, title: 'Learn shortcuts', desc: 'Press ? to see all available keyboard shortcuts.', priority: 'high', status: 'inprogress' },
-                { id: generateId(), projectId: id, title: 'Create a project', desc: 'Use the + icon in the sidebar to create a new workspace.', priority: 'low', status: 'done' }
-            );
-            appData.activeProjectId = id;
-            saveData();
         }
 
         function saveData() { localStorage.setItem('myKanbanData_v1', JSON.stringify(appData)); }
@@ -615,7 +691,7 @@
         }
 
         function navigateTasks(dir) {
-            const allCards = Array.from(document.querySelectorAll('.task-card'));
+            const allCards = Array.from(document.querySelectorAll('.task-card:not(.filtered-out)'));
             if (!allCards.length) return;
             if (!selectedTaskId) { selectTask(allCards[dir === 1 ? 0 : allCards.length - 1].dataset.id); return; }
             const currentIdx = allCards.findIndex(c => c.dataset.id === selectedTaskId);
@@ -630,7 +706,7 @@
             if (newColIdx < 0 || newColIdx >= COLUMNS.length) return;
             task.status = COLUMNS[newColIdx];
             saveData(); renderBoard(); selectTask(selectedTaskId);
-            const labels = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
+            const labels = { backlog: 'Backlog', todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
             showToast(`Moved to ${labels[task.status]}`, 'info');
         }
 
@@ -703,6 +779,75 @@
             });
         }
 
+        // Filtered-out cards stay in the DOM (hidden) so drag/reorder sync never drops them.
+        function matchesFilter(task) {
+            if (filters.priority.length && !filters.priority.includes(task.priority)) return false;
+            if (filters.tag.length && !(task.tags || []).some(t => filters.tag.includes(t))) return false;
+            if (filters.assignee.length && !filters.assignee.includes(task.assignee || '__none__')) return false;
+            return true;
+        }
+
+        function allProjectTags() {
+            const set = new Set();
+            appData.tasks.filter(t => t.projectId === appData.activeProjectId).forEach(t => (t.tags || []).forEach(x => set.add(x)));
+            return [...set].sort((a, b) => a.localeCompare(b));
+        }
+
+        const FILTER_LABELS = { assignee: 'assignees', priority: 'priorities', tag: 'tags' };
+        const PRIORITY_NAMES = { high: '🔴 High', med: '🟡 Medium', low: '🟢 Low' };
+
+        function filterOptions(key) {
+            const projectTasks = appData.tasks.filter(t => t.projectId === appData.activeProjectId);
+            if (key === 'priority') return [['high', PRIORITY_NAMES.high], ['med', PRIORITY_NAMES.med], ['low', PRIORITY_NAMES.low]];
+            if (key === 'tag') return allProjectTags().map(t => [t, t]);
+            const names = [...new Set(projectTasks.filter(t => t.assignee).map(t => t.assignee))].sort((a, b) => a.localeCompare(b));
+            return [['__none__', 'Unassigned'], ...names.map(n => [n, n])];
+        }
+
+        function renderFilterBar() {
+            const wrap = document.getElementById('filterDropdowns');
+            wrap.innerHTML = '';
+            Object.keys(FILTER_LABELS).forEach(key => {
+                const options = filterOptions(key);
+                // drop selections that no longer exist (e.g. a tag was removed from every task)
+                filters[key] = filters[key].filter(v => options.some(o => o[0] === v));
+                const selected = filters[key];
+                const text = selected.length ? options.filter(o => selected.includes(o[0])).map(o => o[1]).join(', ') : `All ${FILTER_LABELS[key]}`;
+                const dd = document.createElement('div');
+                dd.className = 'filter-dd';
+                dd.innerHTML = `<button type="button" class="filter-dd-btn ${selected.length ? 'active' : ''}" data-toggle="${key}" title="Filter by ${key}"><span>${escapeHTML(text)}</span></button>` +
+                    (openFilter === key ? `<div class="filter-dd-panel">${options.length ? options.map(([v, label]) =>
+                        `<label><input type="checkbox" data-key="${key}" value="${escapeHTML(v)}" ${selected.includes(v) ? 'checked' : ''}> ${escapeHTML(label)}</label>`).join('')
+                        : '<div class="filter-dd-empty">Nothing to filter by yet</div>'}</div>` : '');
+                wrap.appendChild(dd);
+            });
+            document.getElementById('clearFilterBtn').style.display = Object.values(filters).some(f => f.length) ? '' : 'none';
+            document.getElementById('filterBar').style.display = '';
+        }
+
+        function clearFilters() {
+            filters = { assignee: [], priority: [], tag: [] };
+            if (selectedTaskId) clearSelection();
+            renderBoard();
+        }
+
+        document.getElementById('filterBar').addEventListener('click', e => {
+            const toggle = e.target.closest('[data-toggle]');
+            if (toggle) { openFilter = openFilter === toggle.dataset.toggle ? null : toggle.dataset.toggle; renderFilterBar(); }
+        });
+        document.getElementById('filterBar').addEventListener('change', e => {
+            const cb = e.target.closest('input[data-key]');
+            if (!cb) return;
+            const list = filters[cb.dataset.key];
+            if (cb.checked) { if (!list.includes(cb.value)) list.push(cb.value); }
+            else filters[cb.dataset.key] = list.filter(v => v !== cb.value);
+            if (selectedTaskId) clearSelection();
+            renderBoard();
+        });
+        document.addEventListener('click', e => {
+            if (openFilter && !e.target.closest('.filter-dd')) { openFilter = null; renderFilterBar(); }
+        });
+
         function renderBoard() {
             const activeProject = appData.projects.find(p => p.id === appData.activeProjectId);
             const headerActions = document.getElementById('headerActions');
@@ -715,6 +860,7 @@
                 titleEl.textContent = 'Welcome to FlowBoard';
                 editBtn.style.display = 'none';
                 headerActions.style.display = 'none';
+                document.getElementById('filterBar').style.display = 'none';
                 board.style.display = 'none';
                 noProjectState.style.display = 'flex';
                 return;
@@ -726,11 +872,18 @@
             board.style.display = 'flex';
             noProjectState.style.display = 'none';
 
+            renderFilterBar();
             document.querySelectorAll('.column-body').forEach(col => col.innerHTML = '');
-            const counts = { todo: 0, inprogress: 0, done: 0 };
+            const counts = { backlog: 0, todo: 0, inprogress: 0, done: 0 };
             appData.tasks.filter(t => t.projectId === appData.activeProjectId).forEach(task => {
                 const col = document.querySelector(`.column-body[data-status="${task.status}"]`);
-                if (col) { col.appendChild(createTaskElement(task)); if (counts[task.status] !== undefined) counts[task.status]++; }
+                if (col) {
+                    const card = createTaskElement(task);
+                    const visible = matchesFilter(task);
+                    if (!visible) card.classList.add('filtered-out');
+                    col.appendChild(card);
+                    if (visible && counts[task.status] !== undefined) counts[task.status]++;
+                }
             });
 
             document.querySelectorAll('.column-body').forEach(col => {
@@ -741,6 +894,7 @@
                 col.appendChild(btn);
             });
 
+            document.getElementById('count-backlog').textContent = counts.backlog;
             document.getElementById('count-todo').textContent = counts.todo;
             document.getElementById('count-inprogress').textContent = counts.inprogress;
             document.getElementById('count-done').textContent = counts.done;
@@ -752,17 +906,50 @@
             }
         }
 
+        function initials(name) {
+            const parts = name.trim().split(/\s+/);
+            return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)).toUpperCase();
+        }
+        function avatarColor(name) {
+            let h = 0;
+            for (const c of name.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) % 360;
+            return `hsl(${h}, 55%, 45%)`;
+        }
+
+        function getDependencies(task) {
+            return (task.dependsOn || []).map(id => appData.tasks.find(t => t.id === id)).filter(Boolean);
+        }
+
+        // true if `fromId` already depends (transitively) on `targetId`
+        function dependsTransitively(fromId, targetId, seen = new Set()) {
+            if (fromId === targetId) return true;
+            if (seen.has(fromId)) return false;
+            seen.add(fromId);
+            const t = appData.tasks.find(x => x.id === fromId);
+            return !!t && (t.dependsOn || []).some(id => dependsTransitively(id, targetId, seen));
+        }
+
         function createTaskElement(task) {
             const el = document.createElement('div');
             el.className = 'task-card';
             el.dataset.id = task.id;
             const priorityLabel = { high: 'High', med: 'Med', low: 'Low' }[task.priority] || 'Low';
+            const deps = getDependencies(task);
+            const openDeps = deps.filter(d => d.status !== 'done');
+            const blockedBadge = task.status === 'done' ? '' :
+                openDeps.length ? `<span class="badge badge-blocked" title="Waiting for ${openDeps.length} task(s)">🔒 Blocked ${openDeps.length}</span>` :
+                deps.length ? `<span class="badge badge-ready" title="All dependencies are done">Ready</span>` : '';
+            const depsHtml = deps.length ? `<div class="task-deps">${deps.map(d =>
+                `<div class="${d.status === 'done' ? 'dep-done' : ''}" title="${escapeHTML(d.title)}">${d.status === 'done' ? '✓' : '↳'} ${escapeHTML(d.title)}</div>`).join('')}</div>` : '';
+            const assigneeHtml = task.assignee ? `<div class="task-assignee" title="Assigned to ${escapeHTML(task.assignee)}"><span class="avatar" style="background:${avatarColor(task.assignee)}">${escapeHTML(initials(task.assignee))}</span><span>${escapeHTML(task.assignee)}</span></div>` : '';
             el.innerHTML = `
-                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span></div>
+                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}</div>
                 <div class="task-title">${escapeHTML(task.title)}</div>
                 ${task.desc ? `<div class="task-desc">${escapeHTML(task.desc)}</div>` : ''}
+                ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
+                ${depsHtml}
                 <div class="task-footer">
-                    <div style="flex:1;"></div>
+                    <div style="flex:1;min-width:0;">${assigneeHtml}</div>
                     <div class="task-actions">
                         <button class="icon-btn" title="Edit (E)" onclick="openTaskModal('${task.id}')">
                             <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
@@ -778,7 +965,11 @@
                 if (selectedTaskId === task.id) clearSelection();
                 else selectTask(task.id);
             });
-            el.addEventListener('pointerdown', (e) => { if (e.target.closest('button') || e.button !== 0) return; initDrag(e, el, task); });
+            el.addEventListener('dblclick', (e) => {
+                if (e.target.closest('button')) return;
+                openTaskModal(task.id);
+            });
+            el.addEventListener('pointerdown', (e) => { if (e.button !== 0 || e.target.closest('button')) return; initDrag(e, el, task); });
             return el;
         }
 
@@ -902,7 +1093,7 @@
                 col.classList.add('drag-over');
                 col.closest('.column')?.classList.add('drag-target');
                 dragState.lastTarget = col;
-                const after = getDragAfterElement(col, e.clientY, placeholder);
+                const after = getDragAfterElement(col, e.clientY, placeholder, e.clientX);
                 if (after) col.insertBefore(placeholder, after);
                 else col.insertBefore(placeholder, col.querySelector('.add-task-inline') || null);
             }
@@ -935,8 +1126,15 @@
             return null;
         }
 
-        function getDragAfterElement(container, y, excludeEl) {
-            return Array.from(container.querySelectorAll('.task-card:not(.drag-source)')).reduce((closest, child) => {
+        function getDragAfterElement(container, y, excludeEl, x) {
+            if (container.dataset.status === 'backlog') {
+                // grid layout: insert before the first card that is below the pointer, or in the same row and to its right
+                return Array.from(container.querySelectorAll('.task-card:not(.drag-source):not(.filtered-out)')).find(child => {
+                    const r = child.getBoundingClientRect();
+                    return y < r.top || (y <= r.bottom && x < r.left + r.width / 2);
+                });
+            }
+            return Array.from(container.querySelectorAll('.task-card:not(.drag-source):not(.filtered-out)')).reduce((closest, child) => {
                 if (child === excludeEl) return closest;
                 const offset = y - child.getBoundingClientRect().top - child.getBoundingClientRect().height / 2;
                 return offset < 0 && offset > closest.offset ? { offset, element: child } : closest;
@@ -958,7 +1156,7 @@
         }
 
         function switchProject(projectId) {
-            clearSelection(); appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
+            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
         }
 
         function deleteCurrentProject() {
@@ -976,6 +1174,7 @@
             if (!confirm('Permanently delete this task?')) return;
             if (selectedTaskId === taskId) clearSelection();
             appData.tasks = appData.tasks.filter(t => t.id !== taskId);
+            appData.tasks.forEach(t => { if (t.dependsOn) t.dependsOn = t.dependsOn.filter(id => id !== taskId); });
             saveData(); renderBoard();
             showToast('Task deleted', 'info');
         }
@@ -1012,15 +1211,115 @@
                 document.getElementById('taskDesc').value = task.desc || '';
                 document.getElementById('taskPriority').value = task.priority;
                 document.getElementById('taskStatus').value = task.status;
+                document.getElementById('taskAssignee').value = task.assignee || '';
+                editingTags = [...(task.tags || [])];
+                editingTaskId = task.id;
+                editingDeps = [...(task.dependsOn || [])];
             } else {
                 document.getElementById('taskModalTitle').textContent = 'Add New Task';
-                statusGroup.style.display = defaultStatus !== 'todo' ? 'block' : 'none';
+                statusGroup.style.display = 'block';
                 document.getElementById('taskId').value = '';
                 document.getElementById('taskStatus').value = defaultStatus;
+                editingTaskId = null;
+                editingDeps = [];
+                editingTags = [];
             }
+            renderTagChips();
+            renderDepChips();
+            hideDepSuggest();
+            document.getElementById('tagList').innerHTML = allProjectTags().map(t => `<option value="${escapeHTML(t)}">`).join('');
+            const names = [...new Set(appData.tasks.filter(t => t.projectId === appData.activeProjectId && t.assignee).map(t => t.assignee))];
+            document.getElementById('assigneeList').innerHTML = names.map(n => `<option value="${escapeHTML(n)}">`).join('');
             document.getElementById('taskModalOverlay').classList.add('active');
             setTimeout(() => document.getElementById('taskTitle').focus(), 150);
         }
+        function renderTagChips() {
+            document.getElementById('tagChips').innerHTML = editingTags.map((t, i) =>
+                `<span class="tag">${escapeHTML(t)}<button type="button" title="Remove" onclick="removeTag(${i})">×</button></span>`).join('');
+        }
+        function addTag(raw) {
+            const tag = raw.trim().replace(/\s+/g, ' ');
+            if (!tag) return;
+            const existing = allProjectTags().find(t => t.toLowerCase() === tag.toLowerCase());
+            const value = existing || tag;
+            if (!editingTags.some(t => t.toLowerCase() === value.toLowerCase())) { editingTags.push(value); renderTagChips(); }
+        }
+        function removeTag(i) { editingTags.splice(i, 1); renderTagChips(); }
+
+        (function setupTagInput() {
+            const input = document.getElementById('taskTagInput');
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); e.stopPropagation(); addTag(input.value.replace(/,/g, '')); input.value = ''; }
+                else if (e.key === 'Backspace' && !input.value && editingTags.length) { editingTags.pop(); renderTagChips(); }
+            });
+            input.addEventListener('blur', () => { addTag(input.value); input.value = ''; });
+        })();
+
+        function renderDepChips() {
+            document.getElementById('depChips').innerHTML = editingDeps.map((id, i) => {
+                const t = appData.tasks.find(x => x.id === id);
+                if (!t) return '';
+                return `<span class="tag dep-chip ${t.status === 'done' ? 'is-done' : ''}" title="${escapeHTML(t.title)}">${escapeHTML(t.title)}<button type="button" title="Remove" onclick="removeDep(${i})">×</button></span>`;
+            }).join('');
+        }
+        function removeDep(i) { editingDeps.splice(i, 1); renderDepChips(); }
+        function addDep(id) {
+            if (!editingDeps.includes(id)) editingDeps.push(id);
+            const input = document.getElementById('taskDepInput');
+            input.value = '';
+            renderDepChips(); showDepSuggest(); input.focus();
+        }
+
+        // open tasks that can still be added: not self, not already chosen, and not creating a cycle
+        function depCandidates(query) {
+            const q = query.trim().toLowerCase();
+            return appData.tasks.filter(t => t.projectId === appData.activeProjectId && t.status !== 'done' &&
+                t.id !== editingTaskId && !editingDeps.includes(t.id) &&
+                !(editingTaskId && dependsTransitively(t.id, editingTaskId)) &&
+                (!q || t.title.toLowerCase().includes(q)));
+        }
+        function showDepSuggest() {
+            const box = document.getElementById('depSuggest');
+            const list = depCandidates(document.getElementById('taskDepInput').value);
+            depHighlight = Math.min(depHighlight, Math.max(0, list.length - 1));
+            const names = { backlog: 'Backlog', todo: 'To Do', inprogress: 'In Progress' };
+            box.innerHTML = list.length ? list.map((t, i) =>
+                `<div class="${i === depHighlight ? 'hl' : ''}" data-id="${t.id}"><span>${escapeHTML(t.title)}</span><span class="dep-status">${names[t.status] || ''}</span></div>`).join('')
+                : '<div class="dep-empty">No matching open tasks</div>';
+            box.style.display = '';
+        }
+        function hideDepSuggest() { document.getElementById('depSuggest').style.display = 'none'; depHighlight = 0; }
+
+        (function setupDepInput() {
+            const input = document.getElementById('taskDepInput');
+            const box = document.getElementById('depSuggest');
+            input.addEventListener('focus', showDepSuggest);
+            input.addEventListener('input', () => { depHighlight = 0; showDepSuggest(); });
+            input.addEventListener('keydown', e => {
+                const open = box.style.display !== 'none';
+                const list = depCandidates(input.value);
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!open) { showDepSuggest(); return; }
+                    if (list.length) { depHighlight = (depHighlight + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length; showDepSuggest(); }
+                } else if (e.key === 'Enter') {
+                    e.preventDefault(); e.stopPropagation();
+                    if (open && list[depHighlight]) addDep(list[depHighlight].id);
+                } else if (e.key === 'Escape' && open) {
+                    e.stopPropagation(); hideDepSuggest();
+                } else if (e.key === 'Backspace' && !input.value && editingDeps.length) {
+                    editingDeps.pop(); renderDepChips(); showDepSuggest();
+                }
+            });
+            // mousedown so the selection happens before the input loses focus
+            box.addEventListener('mousedown', e => {
+                e.preventDefault();
+                const row = e.target.closest('[data-id]');
+                if (row) addDep(row.dataset.id);
+            });
+            input.addEventListener('blur', hideDepSuggest);
+        })();
+
         function closeTaskModal() { document.getElementById('taskModalOverlay').classList.remove('active'); }
 
         document.getElementById('taskForm').addEventListener('submit', e => {
@@ -1030,12 +1329,16 @@
             const desc = document.getElementById('taskDesc').value.trim();
             const priority = document.getElementById('taskPriority').value;
             const status = document.getElementById('taskStatus').value;
+            const assignee = document.getElementById('taskAssignee').value.trim();
+            addTag(document.getElementById('taskTagInput').value); document.getElementById('taskTagInput').value = '';
+            const tags = [...editingTags];
+            const dependsOn = [...editingDeps];
             if (id) {
                 const task = appData.tasks.find(t => t.id === id);
-                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; }
+                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; }
                 showToast('Task updated');
             } else {
-                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status });
+                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();
@@ -1136,10 +1439,13 @@
                 idMap[p.id] = newId;
                 return { ...p, id: newId };
             });
+            const taskIdMap = {};
+            importedData.tasks.forEach(t => { taskIdMap[t.id] = generateId(); });
             const newTasks = importedData.tasks.map(t => ({
                 ...t,
-                id: generateId(),
-                projectId: idMap[t.projectId] || t.projectId
+                id: taskIdMap[t.id],
+                projectId: idMap[t.projectId] || t.projectId,
+                dependsOn: (t.dependsOn || []).map(id => taskIdMap[id]).filter(Boolean)
             }));
 
             appData.projects = appData.projects.concat(newProjects);

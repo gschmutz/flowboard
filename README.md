@@ -9,11 +9,15 @@ A lightweight, fully offline Kanban board that lives in a single HTML file. No s
 
 ## Features
 
-- **Three-column Kanban** — To Do, In Progress, Done
+- **Kanban board** — To Do, In Progress and Done side by side, with a full-width Backlog below that lays its cards out in a grid
 - **Drag & drop cards** with smooth animations and a ghost preview
 - **Multiple projects** — switch between workspaces from the sidebar
 - **Rename projects** — click the pencil icon in the top bar or sidebar, or press `F2`
-- **Task management** — title, description, priority (Low / Medium / High), status
+- **Task management** — double-click a card to edit it; title, description, priority (Low / Medium / High), status
+- **Assignees** — assign each task to a person; shown as a colored avatar on the card, with autocomplete from names already used in the project
+- **Task dependencies** — search and add any open task as a prerequisite, tag-style (add several); cards show a *Blocked* / *Ready* badge and list their prerequisites (circular dependencies are prevented)
+- **Tags** — label tasks with free-form tags (Enter or comma to add); tags appear on the card and autocomplete from the project
+- **Filtering** — narrow the board by assignee (including *Unassigned*), priority and/or tag from the filter bar above the columns; each filter is multi-select (pick several values)
 - **Import & Export** — save your board to a JSON file and reload it on any device; export everything or just the current project
 - **Keyboard-first** — navigate, move, and manage tasks without touching the mouse (press `?` for the full list)
 - **Persistent storage** — data is saved automatically in `localStorage`, automatically
