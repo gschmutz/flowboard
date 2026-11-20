@@ -147,7 +147,7 @@
         .task-card.moving { animation: moveFlash 0.25s ease; }
         @keyframes moveFlash { 0% { transform: scale(1); } 50% { transform: scale(1.02); background: var(--primary-light); } 100% { transform: scale(1); } }
 
-        .task-badges { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+        .task-badges { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
         .badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
         .badge-low { background: var(--priority-low-bg); color: var(--priority-low); }
         .badge-med { background: var(--priority-med-bg); color: var(--priority-med); }
@@ -254,6 +254,14 @@
         .filter-dd-panel label:hover { background: #f3f4f6; }
         .filter-dd-empty { padding: 6px 8px; font-size: 13px; color: var(--text-muted); }
         .task-card.filtered-out { display: none; }
+        .filter-date { display: flex; align-items: center; gap: 6px; }
+        .filter-date input { padding: 4px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; color: var(--text-main); background: white; }
+        .filter-date input.active { border-color: var(--primary); background: #eff6ff; }
+        .task-due { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+        .task-due.overdue { color: var(--danger); font-weight: 600; }
+        .task-due.due-week { color: #d97706; font-weight: 600; }
+        .task-due.due-soon { color: #2563eb; font-weight: 600; }
+        .task-due.due-later { color: #059669; }
         .tag { font-size: 11px; padding: 1px 8px; border-radius: 4px; background: #eef2ff; color: #4338ca; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .task-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
         .tag-editor { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; background: white; }
@@ -328,6 +336,12 @@
             <div class="filter-bar" id="filterBar" style="display:none;">
                 <span>Filter:</span>
                 <div id="filterDropdowns" style="display:flex;gap:10px;align-items:center;"></div>
+                <div class="filter-date" title="Filter by due date">
+                    <span>Due</span>
+                    <input type="date" id="dueFrom" aria-label="Due date from">
+                    <span>–</span>
+                    <input type="date" id="dueTo" aria-label="Due date to">
+                </div>
                 <button class="btn btn-ghost" id="clearFilterBtn" onclick="clearFilters()" style="display:none;padding:4px 10px;">Clear</button>
             </div>
 
@@ -404,7 +418,7 @@
                 </div>
                 <div class="form-group">
                     <label>Description <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
-                    <textarea id="taskDesc" placeholder="Add more details about this task..."></textarea>
+                    <textarea id="taskDesc" rows="7" style="resize:vertical;" placeholder="Add more details about this task..."></textarea>
                 </div>
                 <div style="display:flex;gap:14px;">
                     <div class="form-group" style="flex:1;">
@@ -424,6 +438,14 @@
                             <option value="done">Done</option>
                         </select>
                     </div>
+                </div>
+                <div class="form-group" id="createdGroup" style="display:none;">
+                    <label>Created</label>
+                    <input type="text" id="taskCreatedDate" readonly tabindex="-1" style="background:#f3f4f6;color:var(--text-muted);">
+                </div>
+                <div class="form-group">
+                    <label>Due Date <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                    <input type="date" id="taskDueDate">
                 </div>
                 <div class="form-group">
                     <label>Assignee <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
@@ -584,6 +606,7 @@
         let appData = { projects: [], tasks: [], activeProjectId: null };
         let selectedTaskId = null;
         let filters = { assignee: [], priority: [], tag: [] };
+        let dueFilter = { from: '', to: '' };
         let openFilter = null;
         let editingTags = [];
         let editingDeps = [];
@@ -784,6 +807,11 @@
             if (filters.priority.length && !filters.priority.includes(task.priority)) return false;
             if (filters.tag.length && !(task.tags || []).some(t => filters.tag.includes(t))) return false;
             if (filters.assignee.length && !filters.assignee.includes(task.assignee || '__none__')) return false;
+            if (dueFilter.from || dueFilter.to) {
+                if (!task.dueDate) return false;
+                if (dueFilter.from && task.dueDate < dueFilter.from) return false;
+                if (dueFilter.to && task.dueDate > dueFilter.to) return false;
+            }
             return true;
         }
 
@@ -821,12 +849,16 @@
                         : '<div class="filter-dd-empty">Nothing to filter by yet</div>'}</div>` : '');
                 wrap.appendChild(dd);
             });
-            document.getElementById('clearFilterBtn').style.display = Object.values(filters).some(f => f.length) ? '' : 'none';
+            const from = document.getElementById('dueFrom'), to = document.getElementById('dueTo');
+            from.value = dueFilter.from; to.value = dueFilter.to;
+            from.classList.toggle('active', !!dueFilter.from); to.classList.toggle('active', !!dueFilter.to);
+            document.getElementById('clearFilterBtn').style.display = Object.values(filters).some(f => f.length) || dueFilter.from || dueFilter.to ? '' : 'none';
             document.getElementById('filterBar').style.display = '';
         }
 
         function clearFilters() {
             filters = { assignee: [], priority: [], tag: [] };
+            dueFilter = { from: '', to: '' };
             if (selectedTaskId) clearSelection();
             renderBoard();
         }
@@ -844,6 +876,11 @@
             if (selectedTaskId) clearSelection();
             renderBoard();
         });
+        ['dueFrom', 'dueTo'].forEach(id => document.getElementById(id).addEventListener('change', e => {
+            dueFilter[id === 'dueFrom' ? 'from' : 'to'] = e.target.value;
+            if (selectedTaskId) clearSelection();
+            renderBoard();
+        }));
         document.addEventListener('click', e => {
             if (openFilter && !e.target.closest('.filter-dd')) { openFilter = null; renderFilterBar(); }
         });
@@ -929,6 +966,19 @@
             return !!t && (t.dependsOn || []).some(id => dependsTransitively(id, targetId, seen));
         }
 
+        // Urgency of a due date: overdue, this week (Mon–Sun), within the next 14 days, or later. Done tasks stay neutral.
+        function dueInfo(task) {
+            if (task.status === 'done') return { cls: '', title: 'Due date' };
+            const iso = d => d.toLocaleDateString('sv');
+            const today = new Date();
+            const endOfWeek = new Date(today); endOfWeek.setDate(today.getDate() + 6 - (today.getDay() + 6) % 7);
+            const in14 = new Date(today); in14.setDate(today.getDate() + 14);
+            if (task.dueDate < iso(today)) return { cls: 'overdue', title: 'Overdue' };
+            if (task.dueDate <= iso(endOfWeek)) return { cls: 'due-week', title: 'Due this week' };
+            if (task.dueDate <= iso(in14)) return { cls: 'due-soon', title: 'Due within two weeks' };
+            return { cls: 'due-later', title: 'Due in more than two weeks' };
+        }
+
         function createTaskElement(task) {
             const el = document.createElement('div');
             el.className = 'task-card';
@@ -942,8 +992,10 @@
             const depsHtml = deps.length ? `<div class="task-deps">${deps.map(d =>
                 `<div class="${d.status === 'done' ? 'dep-done' : ''}" title="${escapeHTML(d.title)}">${d.status === 'done' ? '✓' : '↳'} ${escapeHTML(d.title)}</div>`).join('')}</div>` : '';
             const assigneeHtml = task.assignee ? `<div class="task-assignee" title="Assigned to ${escapeHTML(task.assignee)}"><span class="avatar" style="background:${avatarColor(task.assignee)}">${escapeHTML(initials(task.assignee))}</span><span>${escapeHTML(task.assignee)}</span></div>` : '';
+            const due = dueInfo(task);
+            const dueHtml = task.dueDate ? `<div class="task-due ${due.cls}" title="${due.title}">📅 ${escapeHTML(task.dueDate)}</div>` : '';
             el.innerHTML = `
-                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}</div>
+                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}${dueHtml}</div>
                 <div class="task-title">${escapeHTML(task.title)}</div>
                 ${task.desc ? `<div class="task-desc">${escapeHTML(task.desc)}</div>` : ''}
                 ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
@@ -1156,7 +1208,7 @@
         }
 
         function switchProject(projectId) {
-            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
+            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; dueFilter = { from: '', to: '' }; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
         }
 
         function deleteCurrentProject() {
@@ -1212,6 +1264,9 @@
                 document.getElementById('taskPriority').value = task.priority;
                 document.getElementById('taskStatus').value = task.status;
                 document.getElementById('taskAssignee').value = task.assignee || '';
+                document.getElementById('taskDueDate').value = task.dueDate || '';
+                document.getElementById('taskCreatedDate').value = task.createdDate || '';
+                document.getElementById('createdGroup').style.display = task.createdDate ? 'block' : 'none';
                 editingTags = [...(task.tags || [])];
                 editingTaskId = task.id;
                 editingDeps = [...(task.dependsOn || [])];
@@ -1219,6 +1274,7 @@
                 document.getElementById('taskModalTitle').textContent = 'Add New Task';
                 statusGroup.style.display = 'block';
                 document.getElementById('taskId').value = '';
+                document.getElementById('createdGroup').style.display = 'none';
                 document.getElementById('taskStatus').value = defaultStatus;
                 editingTaskId = null;
                 editingDeps = [];
@@ -1330,15 +1386,16 @@
             const priority = document.getElementById('taskPriority').value;
             const status = document.getElementById('taskStatus').value;
             const assignee = document.getElementById('taskAssignee').value.trim();
+            const dueDate = document.getElementById('taskDueDate').value;
             addTag(document.getElementById('taskTagInput').value); document.getElementById('taskTagInput').value = '';
             const tags = [...editingTags];
             const dependsOn = [...editingDeps];
             if (id) {
                 const task = appData.tasks.find(t => t.id === id);
-                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; }
+                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; }
                 showToast('Task updated');
             } else {
-                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags });
+                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, createdDate: new Date().toLocaleDateString('sv') });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();
