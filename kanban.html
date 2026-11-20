@@ -114,7 +114,8 @@
         .board-row { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; flex-shrink: 0; }
         .board-row .column { max-height: max(340px, calc(100vh - 230px)); }
         .column[data-status="backlog"] { flex: none; width: 100%; max-height: none; }
-        .column[data-status="backlog"] .column-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; align-content: start; overflow-y: visible; }
+        .column[data-status="backlog"] .column-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 8px; align-content: start; overflow-y: visible; }
+        .column[data-status="backlog"] .task-badges { flex-wrap: nowrap; white-space: nowrap; }
         .column[data-status="backlog"] .task-card { margin-bottom: 0; }
         .column[data-status="backlog"] .add-task-inline { grid-column: 1 / -1; }
         .column[data-status="backlog"] .drop-placeholder { margin: 0; }
@@ -187,6 +188,9 @@
         .modal { background: white; padding: 28px; border-radius: 12px; width: 440px; box-shadow: var(--shadow-lg); transform: translateY(12px) scale(0.99); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .modal-overlay.active .modal { transform: translateY(0) scale(1); }
         .modal-wide { width: 560px; }
+        #taskModalOverlay { left: 240px; }
+        body:has(.sidebar.collapsed) #taskModalOverlay { left: 60px; }
+        .modal-task { width: calc(100% - 64px); max-height: 92vh; overflow-y: auto; }
 
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
@@ -264,6 +268,15 @@
         .task-due.due-later { color: #059669; }
         .tag { font-size: 11px; padding: 1px 8px; border-radius: 4px; background: #eef2ff; color: #4338ca; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .task-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+        #acList { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(510px, calc(50% - 8px)), 1fr)); gap: 6px 16px; margin-bottom: 6px; }
+        .ac-row { display: flex; align-items: center; gap: 8px; }
+        .ac-row input[type=checkbox] { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; }
+        .form-group .ac-row input[type=text] { flex: 1; padding: 6px 8px; }
+        .ac-row input.ac-done { color: var(--text-muted); }
+        .ac-row button { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
+        .ac-row button:hover { color: var(--danger); }
+        .badge-ac { background: #f3f4f6; color: var(--text-muted); text-transform: none; }
+        .badge-ac.complete { background: #d1fae5; color: #047857; }
         .tag-editor { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; background: white; }
         .tag-editor:focus-within { border-color: var(--border-focus); box-shadow: var(--shadow-focus); }
         .tag-editor .tag { display: inline-flex; align-items: center; gap: 4px; }
@@ -408,8 +421,11 @@
 
     <!-- Task Modal -->
     <div class="modal-overlay" id="taskModalOverlay">
-        <div class="modal">
-            <h2 id="taskModalTitle">Add New Task</h2>
+        <div class="modal modal-task">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+                <h2 id="taskModalTitle">Add New Task</h2>
+                <div id="createdGroup" style="display:none;font-size:12px;color:var(--text-muted);white-space:nowrap;">Created <span id="taskCreatedDate"></span></div>
+            </div>
             <form id="taskForm" autocomplete="off">
                 <input type="hidden" id="taskId">
                 <div class="form-group">
@@ -419,6 +435,11 @@
                 <div class="form-group">
                     <label>Description <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
                     <textarea id="taskDesc" rows="7" style="resize:vertical;" placeholder="Add more details about this task..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Acceptance Criteria <span style="text-transform:none;font-weight:400;color:#9ca3af;">(check them once met)</span></label>
+                    <div id="acList"></div>
+                    <input type="text" id="acNewInput" placeholder="Add a criterion and press Enter...">
                 </div>
                 <div style="display:flex;gap:14px;">
                     <div class="form-group" style="flex:1;">
@@ -438,27 +459,25 @@
                             <option value="done">Done</option>
                         </select>
                     </div>
-                </div>
-                <div class="form-group" id="createdGroup" style="display:none;">
-                    <label>Created</label>
-                    <input type="text" id="taskCreatedDate" readonly tabindex="-1" style="background:#f3f4f6;color:var(--text-muted);">
-                </div>
-                <div class="form-group">
-                    <label>Due Date <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
-                    <input type="date" id="taskDueDate">
-                </div>
-                <div class="form-group">
-                    <label>Assignee <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
-                    <input type="text" id="taskAssignee" list="assigneeList" placeholder="Who is working on this?">
-                    <datalist id="assigneeList"></datalist>
-                </div>
-                <div class="form-group">
-                    <label>Tags <span style="text-transform:none;font-weight:400;color:#9ca3af;">(press Enter or comma to add)</span></label>
-                    <div class="tag-editor" id="tagEditor">
-                        <span id="tagChips" style="display:contents;"></span>
-                        <input type="text" id="taskTagInput" list="tagList" placeholder="Add a tag...">
+                    <div class="form-group" style="flex:1;">
+                        <label>Due Date <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                        <input type="date" id="taskDueDate">
                     </div>
-                    <datalist id="tagList"></datalist>
+                </div>
+                <div style="display:flex;gap:14px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Assignee <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                        <input type="text" id="taskAssignee" list="assigneeList" placeholder="Who is working on this?">
+                        <datalist id="assigneeList"></datalist>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Tags <span style="text-transform:none;font-weight:400;color:#9ca3af;">(press Enter or comma to add)</span></label>
+                        <div class="tag-editor" id="tagEditor">
+                            <span id="tagChips" style="display:contents;"></span>
+                            <input type="text" id="taskTagInput" list="tagList" placeholder="Add a tag...">
+                        </div>
+                        <datalist id="tagList"></datalist>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Depends on <span style="text-transform:none;font-weight:400;color:#9ca3af;">(open tasks that must be done first)</span></label>
@@ -609,6 +628,7 @@
         let dueFilter = { from: '', to: '' };
         let openFilter = null;
         let editingTags = [];
+        let editingAC = [];
         let editingDeps = [];
         let editingTaskId = null;
         let depHighlight = 0;
@@ -992,10 +1012,13 @@
             const depsHtml = deps.length ? `<div class="task-deps">${deps.map(d =>
                 `<div class="${d.status === 'done' ? 'dep-done' : ''}" title="${escapeHTML(d.title)}">${d.status === 'done' ? '✓' : '↳'} ${escapeHTML(d.title)}</div>`).join('')}</div>` : '';
             const assigneeHtml = task.assignee ? `<div class="task-assignee" title="Assigned to ${escapeHTML(task.assignee)}"><span class="avatar" style="background:${avatarColor(task.assignee)}">${escapeHTML(initials(task.assignee))}</span><span>${escapeHTML(task.assignee)}</span></div>` : '';
+            const ac = task.acceptanceCriteria || [];
+            const acDone = ac.filter(c => c.done).length;
+            const acBadge = ac.length ? `<span class="badge badge-ac ${acDone === ac.length ? 'complete' : ''}" title="Acceptance criteria met">☑ ${acDone}/${ac.length}</span>` : '';
             const due = dueInfo(task);
             const dueHtml = task.dueDate ? `<div class="task-due ${due.cls}" title="${due.title}">📅 ${escapeHTML(task.dueDate)}</div>` : '';
             el.innerHTML = `
-                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}${dueHtml}</div>
+                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}${acBadge}${dueHtml}</div>
                 <div class="task-title">${escapeHTML(task.title)}</div>
                 ${task.desc ? `<div class="task-desc">${escapeHTML(task.desc)}</div>` : ''}
                 ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
@@ -1265,9 +1288,10 @@
                 document.getElementById('taskStatus').value = task.status;
                 document.getElementById('taskAssignee').value = task.assignee || '';
                 document.getElementById('taskDueDate').value = task.dueDate || '';
-                document.getElementById('taskCreatedDate').value = task.createdDate || '';
+                document.getElementById('taskCreatedDate').textContent = task.createdDate || '';
                 document.getElementById('createdGroup').style.display = task.createdDate ? 'block' : 'none';
                 editingTags = [...(task.tags || [])];
+                editingAC = (task.acceptanceCriteria || []).map(c => ({ ...c }));
                 editingTaskId = task.id;
                 editingDeps = [...(task.dependsOn || [])];
             } else {
@@ -1279,7 +1303,9 @@
                 editingTaskId = null;
                 editingDeps = [];
                 editingTags = [];
+                editingAC = [];
             }
+            renderAC();
             renderTagChips();
             renderDepChips();
             hideDepSuggest();
@@ -1289,6 +1315,24 @@
             document.getElementById('taskModalOverlay').classList.add('active');
             setTimeout(() => document.getElementById('taskTitle').focus(), 150);
         }
+        function renderAC() {
+            document.getElementById('acList').innerHTML = editingAC.map((c, i) =>
+                `<div class="ac-row"><input type="checkbox" data-i="${i}" ${c.done ? 'checked' : ''} title="Mark as met"><input type="text" class="${c.done ? 'ac-done' : ''}" data-i="${i}" value="${escapeHTML(c.text)}"><button type="button" title="Remove" data-rm="${i}">×</button></div>`).join('');
+        }
+        (function setupAC() {
+            const list = document.getElementById('acList'), input = document.getElementById('acNewInput');
+            const add = () => { const text = input.value.trim(); input.value = ''; if (text) { editingAC.push({ text, done: false }); renderAC(); } };
+            list.addEventListener('change', e => {
+                if (e.target.type !== 'checkbox') return;
+                editingAC[e.target.dataset.i].done = e.target.checked;
+                e.target.nextElementSibling.classList.toggle('ac-done', e.target.checked);
+            });
+            list.addEventListener('input', e => { if (e.target.type === 'text') editingAC[e.target.dataset.i].text = e.target.value; });
+            list.addEventListener('click', e => { const rm = e.target.closest('[data-rm]'); if (rm) { editingAC.splice(+rm.dataset.rm, 1); renderAC(); } });
+            list.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); } });
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); add(); } });
+            input.addEventListener('blur', add);
+        })();
         function renderTagChips() {
             document.getElementById('tagChips').innerHTML = editingTags.map((t, i) =>
                 `<span class="tag">${escapeHTML(t)}<button type="button" title="Remove" onclick="removeTag(${i})">×</button></span>`).join('');
@@ -1390,12 +1434,15 @@
             addTag(document.getElementById('taskTagInput').value); document.getElementById('taskTagInput').value = '';
             const tags = [...editingTags];
             const dependsOn = [...editingDeps];
+            const newAc = document.getElementById('acNewInput').value.trim();
+            if (newAc) { editingAC.push({ text: newAc, done: false }); document.getElementById('acNewInput').value = ''; }
+            const acceptanceCriteria = editingAC.map(c => ({ text: c.text.trim(), done: c.done })).filter(c => c.text);
             if (id) {
                 const task = appData.tasks.find(t => t.id === id);
-                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; }
+                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.acceptanceCriteria = acceptanceCriteria; }
                 showToast('Task updated');
             } else {
-                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, createdDate: new Date().toLocaleDateString('sv') });
+                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();
@@ -1501,6 +1548,7 @@
             const newTasks = importedData.tasks.map(t => ({
                 ...t,
                 id: taskIdMap[t.id],
+                acceptanceCriteria: t.acceptanceCriteria || [],
                 projectId: idMap[t.projectId] || t.projectId,
                 dependsOn: (t.dependsOn || []).map(id => taskIdMap[id]).filter(Boolean)
             }));

@@ -35,6 +35,7 @@ Every task has exactly these fields, in this order:
 | `assignee` | string | A generic role (see "Assignee"). Never a person's name. |
 | `dependsOn` | string[] | IDs of prerequisite tasks (see "Dependencies"). `[]` if none. |
 | `tags` | string[] | From the allowed list (see "Tags"). `[]` if none fit. |
+| `acceptanceCriteria` | object[] | 2–5 testable criteria, each `{ "text": "...", "done": false }` (see "Acceptance criteria"). |
 | `dueDate` | string | Due date as `YYYY-MM-DD` (e.g. `2026-12-31`), or `""` if none. See "Due date". |
 | `createdDate` | string | Today's date as `YYYY-MM-DD` (see "Created date"). |
 
@@ -83,6 +84,13 @@ Use only these tags, in lowercase-kebab-case:
 
 Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user before adding it**, and add it to this list once approved.
 
+## Acceptance criteria
+
+- Every new task gets 2–5 acceptance criteria in `acceptanceCriteria`, kept separate from `desc`. Each is an object with exactly `text` and `done`.
+- `text`: one short, testable statement of what must be true for the task to be complete (e.g. `Schema Registry pods are running and healthy`). No trailing period, no numbering.
+- `done`: always `false` for new tasks. Never check criteria or change them on existing tasks; users tick them on the board.
+- Don't repeat the description. `desc` explains **why**, the criteria define **when it's done**.
+
 ## Due date
 
 - Format: `YYYY-MM-DD` (ISO 8601 date, no time). Use `""` if the user gives no due date. Never invent one.
@@ -101,7 +109,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 2. Ask the user about anything unclear: ambiguous scope, missing role, unknown dependency, new tag, other project. Don't assume.
 3. Draft the new task objects following the rules above.
 4. Append them to the end of `tasks`, then update `exported`.
-5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every `dueDate` is `""` or a valid `YYYY-MM-DD` date, and every new task has `createdDate` set to today.
+5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, and every new task has `createdDate` set to today.
 6. Tell the user which tasks were added (title, ID, assignee, dependencies). Don't paste the whole file.
 
 ## Example
@@ -117,6 +125,11 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
   "assignee": "Platform Engineer",
   "dependsOn": ["mwkxr5vxikc4dkd8phe"],
   "tags": ["infrastructure"],
+  "acceptanceCriteria": [
+    { "text": "Schema Registry pods are running and healthy on OpenShift", "done": false },
+    { "text": "Registry connects to the Kafka cluster and stores schemas", "done": false },
+    { "text": "Deployment is done via the Helm chart and documented", "done": false }
+  ],
   "dueDate": "2026-12-15",
   "createdDate": "2026-11-20"
 }
