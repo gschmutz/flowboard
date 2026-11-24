@@ -1074,7 +1074,7 @@
                 openDeps.length ? `<span class="badge badge-blocked" title="Waiting for ${openDeps.length} task(s)">🔒 Blocked ${openDeps.length}</span>` :
                 deps.length ? `<span class="badge badge-ready" title="All dependencies are done">Ready</span>` : '';
             const depsHtml = deps.length ? `<div class="task-deps">${deps.map(d =>
-                `<div class="${d.status === 'done' ? 'dep-done' : ''}" title="${escapeHTML(d.title)}">${d.status === 'done' ? '✓' : '↳'} ${escapeHTML(d.title)}</div>`).join('')}</div>` : '';
+                `<div class="${d.status === 'done' ? 'dep-done' : ''}" title="${escapeHTML(d.id + ' ' + d.title)}">${d.status === 'done' ? '✓' : '↳'} ${escapeHTML(d.id)} ${escapeHTML(d.title)}</div>`).join('')}</div>` : '';
             const assigneeHtml = task.assignee ? `<div class="task-assignee" title="Assigned to ${escapeHTML(task.assignee)}"><span class="avatar" style="background:${avatarColor(task.assignee)}">${escapeHTML(initials(task.assignee))}</span><span>${escapeHTML(task.assignee)}</span></div>` : '';
             const ac = task.acceptanceCriteria || [];
             const acDone = ac.filter(c => c.done).length;
@@ -1433,7 +1433,7 @@
             document.getElementById('depChips').innerHTML = editingDeps.map((id, i) => {
                 const t = appData.tasks.find(x => x.id === id);
                 if (!t) return '';
-                return `<span class="tag dep-chip ${t.status === 'done' ? 'is-done' : ''}" title="${escapeHTML(t.title)}">${escapeHTML(t.title)}<button type="button" title="Remove" onclick="removeDep(${i})">×</button></span>`;
+                return `<span class="tag dep-chip ${t.status === 'done' ? 'is-done' : ''}" title="${escapeHTML(t.id + ' ' + t.title)}">${escapeHTML(t.id)} ${escapeHTML(t.title)}<button type="button" title="Remove" onclick="removeDep(${i})">×</button></span>`;
             }).join('');
         }
         function removeDep(i) { editingDeps.splice(i, 1); renderDepChips(); }
