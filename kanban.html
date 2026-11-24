@@ -454,6 +454,10 @@
                             <option value="high">🔴 High</option>
                         </select>
                     </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Estimate <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                        <input type="text" id="taskEstimate" maxlength="20" placeholder="e.g. 3d, 5 SP">
+                    </div>
                     <div class="form-group" id="statusGroup" style="flex:1;">
                         <label>Status</label>
                         <select id="taskStatus">
@@ -698,6 +702,7 @@
                 });
                 p.nextTaskNumber = Math.max(p.nextTaskNumber || 1, max + 1);
             });
+            tasks.forEach(t => { if (t.priority === 'medium') t.priority = 'med'; }); // files written by hand/AI may say "medium"
             const ids = new Set(tasks.map(t => t.id));
             tasks.forEach(t => { t.dependsOn = (t.dependsOn || []).map(d => idMap[d] || d).filter(d => ids.has(d)); });
         }
@@ -1360,6 +1365,7 @@
                 document.getElementById('taskDesc').value = task.desc || '';
                 document.getElementById('taskPriority').value = task.priority;
                 document.getElementById('taskStatus').value = task.status;
+                document.getElementById('taskEstimate').value = task.estimate || '';
                 document.getElementById('taskAssignee').value = task.assignee || '';
                 document.getElementById('taskDueDate').value = task.dueDate || '';
                 document.getElementById('taskCreatedDate').textContent = task.createdDate || '';
@@ -1505,6 +1511,7 @@
             const status = document.getElementById('taskStatus').value;
             const assignee = document.getElementById('taskAssignee').value.trim();
             const dueDate = document.getElementById('taskDueDate').value;
+            const estimate = document.getElementById('taskEstimate').value.trim();
             addTag(document.getElementById('taskTagInput').value); document.getElementById('taskTagInput').value = '';
             const tags = [...editingTags];
             const dependsOn = [...editingDeps];
@@ -1513,11 +1520,11 @@
             const acceptanceCriteria = editingAC.map(c => ({ text: c.text.trim(), done: c.done })).filter(c => c.text);
             if (id) {
                 const task = appData.tasks.find(t => t.id === id);
-                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.acceptanceCriteria = acceptanceCriteria; }
+                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.estimate = estimate; task.acceptanceCriteria = acceptanceCriteria; }
                 showToast('Task updated');
             } else {
                 const proj = appData.projects.find(p => p.id === appData.activeProjectId);
-                appData.tasks.push({ id: formatTaskId(proj.key, proj.nextTaskNumber++), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
+                appData.tasks.push({ id: formatTaskId(proj.key, proj.nextTaskNumber++), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, estimate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();

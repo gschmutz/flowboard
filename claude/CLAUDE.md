@@ -30,13 +30,14 @@ Every task has exactly these fields, in this order:
 | `projectId` | string | `id` of an entry in `projects` |
 | `title` | string | Short, imperative, no trailing period (e.g. `Install Kafka Cluster`) |
 | `desc` | string | 1–3 sentences stating **why** the task is needed and key constraints or decisions. Don't just repeat the title. |
-| `priority` | string | `low`, `medium` or `high`. Default `medium` unless the user says otherwise. |
+| `priority` | string | `low`, `med` or `high` (exactly these; the board does not recognise `medium`). Default `med` unless the user says otherwise. |
 | `status` | string | **Always `"backlog"`** for new tasks, no exceptions. |
 | `assignee` | string | A generic role (see "Assignee"). Never a person's name. |
 | `dependsOn` | string[] | IDs of prerequisite tasks (see "Dependencies"). `[]` if none. |
 | `tags` | string[] | From the allowed list (see "Tags"). `[]` if none fit. |
 | `acceptanceCriteria` | object[] | 2–5 testable criteria, each `{ "text": "...", "done": false }` (see "Acceptance criteria"). |
 | `dueDate` | string | Due date as `YYYY-MM-DD` (e.g. `2026-12-31`), or `""` if none. See "Due date". |
+| `estimate` | string | Effort estimate, max 20 characters, or `""` if none (see "Estimate"). |
 | `createdDate` | string | Today's date as `YYYY-MM-DD` (see "Created date"). |
 
 Do not add fields that aren't listed here.
@@ -100,6 +101,11 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 - The date must be a valid calendar date. A due date should not be earlier than the due date of a prerequisite in `dependsOn`; flag it to the user if it is.
 - The board lets users filter tasks by a due date range (from – to, inclusive). Tasks with an empty `dueDate` are hidden while a range filter is active.
 
+## Estimate
+
+- Free text, max 20 characters, shown in the task dialog next to priority (e.g. `3d`, `16h`, `5 SP`). Use `""` if the user gives none. Never invent one.
+- Use the unit the user states; if they give a bare number, ask which unit. Don't convert between units.
+
 ## Created date
 
 - `createdDate` is the day the task is created, as `YYYY-MM-DD`. Always set it to today's date for new tasks; never ask the user for it.
@@ -111,7 +117,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 2. Ask the user about anything unclear: ambiguous scope, missing role, unknown dependency, new tag, other project. Don't assume.
 3. Draft the new task objects following the rules above.
 4. Append them to the end of `tasks`, then update `exported`.
-5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, and every new task has `createdDate` set to today.
+5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, every `estimate` is a string of at most 20 characters, and every new task has `createdDate` set to today.
 6. Tell the user which tasks were added (title, ID, assignee, dependencies). Don't paste the whole file.
 
 ## Example
@@ -122,7 +128,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
   "projectId": "<id of the Data Lakehouse project>",
   "title": "Install Confluent Schema Registry on OpenShift",
   "desc": "Schema management is needed for the Kafka cluster on OpenShift. Confluent Schema Registry is to be deployed via its Helm chart rather than hand-written manifests.",
-  "priority": "medium",
+  "priority": "med",
   "status": "backlog",
   "assignee": "Platform Engineer",
   "dependsOn": ["DL-003"],
@@ -133,6 +139,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
     { "text": "Deployment is done via the Helm chart and documented", "done": false }
   ],
   "dueDate": "2026-12-15",
+  "estimate": "3d",
   "createdDate": "2026-11-20"
 }
 ```
