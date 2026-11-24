@@ -258,6 +258,8 @@
         .filter-dd-panel label:hover { background: #f3f4f6; }
         .filter-dd-empty { padding: 6px 8px; font-size: 13px; color: var(--text-muted); }
         .task-card.filtered-out { display: none; }
+        .filter-search { padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; color: var(--text-main); background: white; width: 200px; }
+        .filter-search.active { border-color: var(--primary); background: #eff6ff; }
         .filter-date { display: flex; align-items: center; gap: 6px; }
         .filter-date input { padding: 4px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; color: var(--text-main); background: white; }
         .filter-date input.active { border-color: var(--primary); background: #eff6ff; }
@@ -355,6 +357,7 @@
                     <span>–</span>
                     <input type="date" id="dueTo" aria-label="Due date to">
                 </div>
+                <input type="search" id="taskSearch" class="filter-search" placeholder="Search tasks…" aria-label="Search tasks by text" autocomplete="off">
                 <button class="btn btn-ghost" id="clearFilterBtn" onclick="clearFilters()" style="display:none;padding:4px 10px;">Clear</button>
             </div>
 
@@ -627,6 +630,7 @@
         let filters = { assignee: [], priority: [], tag: [] };
         let dueFilter = { from: '', to: '' };
         let openFilter = null;
+        let searchQuery = '';
         let editingTags = [];
         let editingAC = [];
         let editingDeps = [];
@@ -832,6 +836,12 @@
                 if (dueFilter.from && task.dueDate < dueFilter.from) return false;
                 if (dueFilter.to && task.dueDate > dueFilter.to) return false;
             }
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase().replace(/\s+/g, ' ');
+                const hay = [task.title, task.desc, task.assignee, ...(task.tags || []), ...(task.acceptanceCriteria || []).map(c => c.text)]
+                    .filter(Boolean).join('\n').toLowerCase().replace(/\s+/g, ' ');
+                if (!hay.includes(q)) return false;
+            }
             return true;
         }
 
@@ -872,13 +882,17 @@
             const from = document.getElementById('dueFrom'), to = document.getElementById('dueTo');
             from.value = dueFilter.from; to.value = dueFilter.to;
             from.classList.toggle('active', !!dueFilter.from); to.classList.toggle('active', !!dueFilter.to);
-            document.getElementById('clearFilterBtn').style.display = Object.values(filters).some(f => f.length) || dueFilter.from || dueFilter.to ? '' : 'none';
+            const search = document.getElementById('taskSearch');
+            if (search.value.trim() !== searchQuery) search.value = searchQuery;
+            search.classList.toggle('active', !!searchQuery);
+            document.getElementById('clearFilterBtn').style.display = Object.values(filters).some(f => f.length) || dueFilter.from || dueFilter.to || searchQuery ? '' : 'none';
             document.getElementById('filterBar').style.display = '';
         }
 
         function clearFilters() {
             filters = { assignee: [], priority: [], tag: [] };
             dueFilter = { from: '', to: '' };
+            searchQuery = '';
             if (selectedTaskId) clearSelection();
             renderBoard();
         }
@@ -901,6 +915,11 @@
             if (selectedTaskId) clearSelection();
             renderBoard();
         }));
+        document.getElementById('taskSearch').addEventListener('input', e => {
+            searchQuery = e.target.value.trim();
+            if (selectedTaskId) clearSelection();
+            renderBoard();
+        });
         document.addEventListener('click', e => {
             if (openFilter && !e.target.closest('.filter-dd')) { openFilter = null; renderFilterBar(); }
         });
@@ -1231,7 +1250,7 @@
         }
 
         function switchProject(projectId) {
-            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; dueFilter = { from: '', to: '' }; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
+            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; dueFilter = { from: '', to: '' }; searchQuery = ''; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
         }
 
         function deleteCurrentProject() {
