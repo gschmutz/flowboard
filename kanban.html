@@ -124,6 +124,8 @@
         .column.drag-target { background-color: #d8ddf0; box-shadow: inset 0 0 0 2px rgba(37,99,235,0.25); }
 
         .column-header { padding: 14px 14px 10px; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: var(--text-muted); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .count-wrap { display: flex; align-items: center; gap: 8px; }
+        .estimate-sum { font-size: 11px; font-weight: 600; color: var(--primary); }
         .column-header .count { background: white; color: var(--text-muted); padding: 1px 7px; border-radius: 20px; font-size: 11px; font-weight: 600; box-shadow: var(--shadow-xs); }
 
         .column-body { padding: 4px 10px 10px 10px; flex: 1; overflow-y: auto; min-height: 120px; }
@@ -279,6 +281,7 @@
         .ac-row button { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
         .ac-row button:hover { color: var(--danger); }
         .badge-ac { background: #f3f4f6; color: var(--text-muted); text-transform: none; }
+        .badge-estimate { background: #eff6ff; color: var(--primary); text-transform: none; }
         .badge-ac.complete { background: #d1fae5; color: #047857; }
         .tag-editor { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; background: white; }
         .tag-editor:focus-within { border-color: var(--border-focus); box-shadow: var(--shadow-focus); }
@@ -370,7 +373,7 @@
                             <div class="column-status-bar"></div>
                             <span>To Do</span>
                         </div>
-                        <span class="count" id="count-todo">0</span>
+                        <div class="count-wrap"><span class="estimate-sum" id="sum-todo" title="Sum of estimates"></span><span class="count" id="count-todo">0</span></div>
                     </div>
                     <div class="column-body" data-status="todo"></div>
                 </div>
@@ -380,7 +383,7 @@
                             <div class="column-status-bar"></div>
                             <span>In Progress</span>
                         </div>
-                        <span class="count" id="count-inprogress">0</span>
+                        <div class="count-wrap"><span class="estimate-sum" id="sum-inprogress" title="Sum of estimates"></span><span class="count" id="count-inprogress">0</span></div>
                     </div>
                     <div class="column-body" data-status="inprogress"></div>
                 </div>
@@ -390,7 +393,7 @@
                             <div class="column-status-bar"></div>
                             <span>Done</span>
                         </div>
-                        <span class="count" id="count-done">0</span>
+                        <div class="count-wrap"><span class="estimate-sum" id="sum-done" title="Sum of estimates"></span><span class="count" id="count-done">0</span></div>
                     </div>
                     <div class="column-body" data-status="done"></div>
                 </div>
@@ -401,7 +404,7 @@
                             <div class="column-status-bar"></div>
                             <span>Backlog</span>
                         </div>
-                        <span class="count" id="count-backlog">0</span>
+                        <div class="count-wrap"><span class="estimate-sum" id="sum-backlog" title="Sum of estimates"></span><span class="count" id="count-backlog">0</span></div>
                     </div>
                     <div class="column-body" data-status="backlog"></div>
                 </div>
@@ -974,6 +977,20 @@
             if (openFilter && !e.target.closest('.filter-dd')) { openFilter = null; renderFilterBar(); }
         });
 
+        // Estimates are free text ("3d", "5 SP", "16h"). Sum numbers per unit; units are never converted.
+        function sumEstimates(tasks) {
+            const totals = new Map();
+            tasks.forEach(t => {
+                const m = /^(\d+(?:[.,]\d+)?)\s*([a-zA-Z]*)$/.exec((t.estimate || '').trim());
+                if (!m) return;
+                const unit = m[2], k = unit.toLowerCase();
+                const cur = totals.get(k) || { unit, sum: 0 };
+                cur.sum += parseFloat(m[1].replace(',', '.'));
+                totals.set(k, cur);
+            });
+            return [...totals.values()].map(({ unit, sum }) => `${Math.round(sum * 100) / 100}${unit.length > 1 ? ' ' : ''}${unit}`).join(' + ');
+        }
+
         function renderBoard() {
             const activeProject = appData.projects.find(p => p.id === appData.activeProjectId);
             const headerActions = document.getElementById('headerActions');
@@ -1001,6 +1018,7 @@
             renderFilterBar();
             document.querySelectorAll('.column-body').forEach(col => col.innerHTML = '');
             const counts = { backlog: 0, todo: 0, inprogress: 0, done: 0 };
+            const visibleTasks = { backlog: [], todo: [], inprogress: [], done: [] };
             appData.tasks.filter(t => t.projectId === appData.activeProjectId).forEach(task => {
                 const col = document.querySelector(`.column-body[data-status="${task.status}"]`);
                 if (col) {
@@ -1008,7 +1026,7 @@
                     const visible = matchesFilter(task);
                     if (!visible) card.classList.add('filtered-out');
                     col.appendChild(card);
-                    if (visible && counts[task.status] !== undefined) counts[task.status]++;
+                    if (visible && counts[task.status] !== undefined) { counts[task.status]++; visibleTasks[task.status].push(task); }
                 }
             });
 
@@ -1024,6 +1042,7 @@
             document.getElementById('count-todo').textContent = counts.todo;
             document.getElementById('count-inprogress').textContent = counts.inprogress;
             document.getElementById('count-done').textContent = counts.done;
+            Object.keys(visibleTasks).forEach(st => { document.getElementById('sum-' + st).textContent = sumEstimates(visibleTasks[st]); });
 
             if (selectedTaskId) {
                 const el = document.querySelector(`.task-card[data-id="${selectedTaskId}"]`);
@@ -1084,10 +1103,11 @@
             const ac = task.acceptanceCriteria || [];
             const acDone = ac.filter(c => c.done).length;
             const acBadge = ac.length ? `<span class="badge badge-ac ${acDone === ac.length ? 'complete' : ''}" title="Acceptance criteria met">☑ ${acDone}/${ac.length}</span>` : '';
+            const estimateBadge = task.estimate ? `<span class="badge badge-estimate" title="Estimate">⏱ ${escapeHTML(task.estimate)}</span>` : '';
             const due = dueInfo(task);
             const dueHtml = task.dueDate ? `<div class="task-due ${due.cls}" title="${due.title}">📅 ${escapeHTML(task.dueDate)}</div>` : '';
             el.innerHTML = `
-                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}${acBadge}${dueHtml}</div>
+                <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${estimateBadge}${blockedBadge}${acBadge}${dueHtml}</div>
                 <div class="task-id">${escapeHTML(task.id)}</div>
                 <div class="task-title">${escapeHTML(task.title)}</div>
                 ${task.desc ? `<div class="task-desc">${escapeHTML(task.desc)}</div>` : ''}
