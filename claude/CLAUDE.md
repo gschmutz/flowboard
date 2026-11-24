@@ -16,7 +16,7 @@ This repository holds the JSON export of a Kanban tool. Your job is to **add tas
 - **Starting file:** Initially, use `flowboard-empty.json` (an empty export with no projects and no tasks). Ask for the project and start adding tasks. 
 - **Naming:** Store it under a new name in the format `flowboard-vNN.json`, where NN is a two-digit version number starting with `flowboard-v01.json`. Rename (move) the file, don't copy it, so `flowboard-empty.json` no longer exists.
 - **After that:** Always keep using the same file and edit it **in place**. Never create a separate import file, and never switch to another file. Always increase the version number for each edit by renaming the file (`v01` → `v02` → …), so only one flowboard file exists at any time.
-- Do not change `version` or any existing task. `projects` stays unchanged, except that (a) when it is empty you add the project the user confirms (default: Data Lakehouse, key `DL`, `nextTaskNumber` 1) and (b) you bump `nextTaskNumber` when adding tasks.
+- Do not change `version`. Existing tasks may be changed only after asking the user first (see "Changing existing tasks"). `projects` stays unchanged, except that (a) when it is empty you add the project the user confirms (default: Data Lakehouse, key `DL`, `nextTaskNumber` 1) and (b) you bump `nextTaskNumber` when adding tasks.
 - Update `exported` to the current UTC time (e.g. `2026-11-19T09:30:00.000Z`) whenever you add tasks.
 - Keep the file valid JSON: 2-space indentation, double quotes, no trailing commas, no comments.
 
@@ -91,7 +91,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 
 - Every new task gets 2–5 acceptance criteria in `acceptanceCriteria`, kept separate from `desc`. Each is an object with exactly `text` and `done`.
 - `text`: one short, testable statement of what must be true for the task to be complete (e.g. `Schema Registry pods are running and healthy`). No trailing period, no numbering.
-- `done`: always `false` for new tasks. Never check criteria or change them on existing tasks; users tick them on the board.
+- `done`: always `false` for new tasks. Don't tick or change criteria on existing tasks on your own initiative; users tick them on the board. Changes need the user's approval (see "Changing existing tasks").
 - Don't repeat the description. `desc` explains **why**, the criteria define **when it's done**.
 
 ## Due date
@@ -109,7 +109,17 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 ## Created date
 
 - `createdDate` is the day the task is created, as `YYYY-MM-DD`. Always set it to today's date for new tasks; never ask the user for it.
-- It is read-only: never change it on existing tasks. The board shows it only in the task's detail dialog, not on the cards.
+- Never change it on existing tasks, not even with approval. The board shows it only in the task's detail dialog, not on the cards.
+
+## Changing existing tasks
+
+- Never change, remove or reorder an existing task on your own initiative, not even to fix an obvious mistake. Ask first.
+- Before changing anything, tell the user exactly what you would change: the task (ID and title), the field, the old value and the new value. Wait for an explicit yes. Approval covers only the changes you listed.
+- Group related changes into one question (e.g. "change `priority` from `medium` to `med` on 6 tasks?"), but list every affected task ID.
+- Never change `id` or `createdDate`, even with approval. Task IDs are referenced by `dependsOn` and must stay stable.
+- Deleting a task needs approval too. Also check that no other task lists it in `dependsOn`, and tell the user if one does.
+- Keep the same rules (field order, allowed values, validation) when editing; after the edit, run the validation step below on the changed tasks.
+- Mention every change you made to existing tasks when you report back.
 
 ## Workflow when adding tasks
 
@@ -118,7 +128,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 3. Draft the new task objects following the rules above.
 4. Append them to the end of `tasks`, then update `exported`.
 5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, every `estimate` is a string of at most 20 characters, and every new task has `createdDate` set to today.
-6. Tell the user which tasks were added (title, ID, assignee, dependencies). Don't paste the whole file.
+6. Tell the user which tasks were added (title, ID, assignee, dependencies) and any approved changes to existing tasks. Don't paste the whole file.
 
 ## Example
 
