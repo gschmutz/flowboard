@@ -258,6 +258,7 @@
         .filter-dd-panel label:hover { background: #f3f4f6; }
         .filter-dd-empty { padding: 6px 8px; font-size: 13px; color: var(--text-muted); }
         .task-card.filtered-out { display: none; }
+        .task-id { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.03em; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
         .filter-search { padding: 5px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; color: var(--text-main); background: white; width: 200px; }
         .filter-search.active { border-color: var(--primary); background: #eff6ff; }
         .filter-date { display: flex; align-items: center; gap: 6px; }
@@ -509,6 +510,10 @@
                     <label>Project Name</label>
                     <input type="text" id="projectName" required placeholder="e.g. Website Redesign">
                 </div>
+                <div class="form-group">
+                    <label>Project Key <span style="font-weight:400;color:var(--text-muted)">(task IDs look like KEY-001)</span></label>
+                    <input type="text" id="projectKey" required maxlength="5" pattern="[A-Za-z0-9]{2,5}" placeholder="e.g. WR" style="text-transform:uppercase;" title="2 to 5 letters or digits">
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeProjectModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Create Project</button>
@@ -649,12 +654,52 @@
             if (stored) {
                 try { appData = JSON.parse(stored); } catch(e) { /* unreadable data: start with an empty board */ }
             }
+            ensureTaskIds();
+            saveData();
             const isCollapsed = localStorage.getItem('myKanbanSidebar') === 'true';
             if (isCollapsed) document.getElementById('sidebar').classList.add('collapsed');
             renderSidebar();
             renderBoard();
             setupKeyboard();
             setupImportDrop();
+        }
+
+        // ─── Task IDs: <project key>-<number> ───────────────────────────
+        function normalizeKey(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); }
+        function suggestKey(name, takenKeys) {
+            const words = String(name || '').toUpperCase().match(/[A-Z0-9]+/g) || [];
+            let base = words.length > 1 ? words.map(w => w[0]).join('') : (words[0] || 'PR');
+            base = base.slice(0, 3).padEnd(2, 'X');
+            let key = base, n = 2;
+            while (takenKeys.includes(key)) key = base.slice(0, 4) + n++;
+            return key;
+        }
+        function formatTaskId(key, number) { return `${key}-${String(number).padStart(3, '0')}`; }
+        // Task IDs are immutable: <project key>-<number>, e.g. WR-001. A project's key is fixed at creation.
+        // Gives every project a unique key and every task in `tasks` an ID of that form (older data used random IDs),
+        // rewriting dependsOn among those tasks. Mutates both arrays.
+        function ensureTaskIds(projects = appData.projects, tasks = appData.tasks, takenKeys = []) {
+            const seen = [...takenKeys];
+            const idMap = {};
+            projects.forEach(p => {
+                let key = normalizeKey(p.key);
+                if (key.length < 2 || seen.includes(key)) key = suggestKey(p.name, seen);
+                p.key = key; seen.push(key);
+                const mine = tasks.filter(t => t.projectId === p.id);
+                const valid = new RegExp(`^${key}-(\\d+)$`);
+                let max = 0;
+                mine.forEach(t => { const m = valid.exec(t.id); if (m) max = Math.max(max, +m[1]); else max = Math.max(max, t.number || 0); });
+                mine.forEach(t => {
+                    delete t.number;
+                    if (valid.test(t.id)) return;
+                    const oldId = t.id;
+                    t.id = formatTaskId(key, ++max);
+                    idMap[oldId] = t.id;
+                });
+                p.nextTaskNumber = Math.max(p.nextTaskNumber || 1, max + 1);
+            });
+            const ids = new Set(tasks.map(t => t.id));
+            tasks.forEach(t => { t.dependsOn = (t.dependsOn || []).map(d => idMap[d] || d).filter(d => ids.has(d)); });
         }
 
         function saveData() { localStorage.setItem('myKanbanData_v1', JSON.stringify(appData)); }
@@ -838,7 +883,7 @@
             }
             if (searchQuery) {
                 const q = searchQuery.toLowerCase().replace(/\s+/g, ' ');
-                const hay = [task.title, task.desc, task.assignee, ...(task.tags || []), ...(task.acceptanceCriteria || []).map(c => c.text)]
+                const hay = [task.id, task.title, task.desc, task.assignee, ...(task.tags || []), ...(task.acceptanceCriteria || []).map(c => c.text)]
                     .filter(Boolean).join('\n').toLowerCase().replace(/\s+/g, ' ');
                 if (!hay.includes(q)) return false;
             }
@@ -1038,6 +1083,7 @@
             const dueHtml = task.dueDate ? `<div class="task-due ${due.cls}" title="${due.title}">📅 ${escapeHTML(task.dueDate)}</div>` : '';
             el.innerHTML = `
                 <div class="task-badges"><span class="badge badge-${task.priority}">${priorityLabel}</span>${blockedBadge}${acBadge}${dueHtml}</div>
+                <div class="task-id">${escapeHTML(task.id)}</div>
                 <div class="task-title">${escapeHTML(task.title)}</div>
                 ${task.desc ? `<div class="task-desc">${escapeHTML(task.desc)}</div>` : ''}
                 ${(task.tags || []).length ? `<div class="task-tags">${task.tags.map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>` : ''}
@@ -1277,15 +1323,24 @@
         function openProjectModal() {
             document.getElementById('projectForm').reset();
             document.getElementById('projectModalOverlay').classList.add('active');
+            keyTouched = false;
             setTimeout(() => document.getElementById('projectName').focus(), 150);
         }
+        let keyTouched = false;
+        document.getElementById('projectKey').addEventListener('input', () => { keyTouched = true; });
+        document.getElementById('projectName').addEventListener('input', e => {
+            if (!keyTouched) document.getElementById('projectKey').value = suggestKey(e.target.value, appData.projects.map(p => p.key));
+        });
         function closeProjectModal() { document.getElementById('projectModalOverlay').classList.remove('active'); }
 
         document.getElementById('projectForm').addEventListener('submit', e => {
             e.preventDefault();
             const name = document.getElementById('projectName').value.trim();
             if (!name) return;
-            const newProject = { id: generateId(), name };
+            const key = normalizeKey(document.getElementById('projectKey').value);
+            if (key.length < 2) { showToast('Key must be 2-5 letters or digits', 'warn'); return; }
+            if (appData.projects.some(p => p.key === key)) { showToast(`Key ${key} is already used by another project`, 'warn'); return; }
+            const newProject = { id: generateId(), name, key, nextTaskNumber: 1 };
             appData.projects.push(newProject);
             appData.activeProjectId = newProject.id;
             saveData(); closeProjectModal(); renderSidebar(); renderBoard();
@@ -1395,7 +1450,7 @@
             return appData.tasks.filter(t => t.projectId === appData.activeProjectId && t.status !== 'done' &&
                 t.id !== editingTaskId && !editingDeps.includes(t.id) &&
                 !(editingTaskId && dependsTransitively(t.id, editingTaskId)) &&
-                (!q || t.title.toLowerCase().includes(q)));
+                (!q || t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)));
         }
         function showDepSuggest() {
             const box = document.getElementById('depSuggest');
@@ -1403,7 +1458,7 @@
             depHighlight = Math.min(depHighlight, Math.max(0, list.length - 1));
             const names = { backlog: 'Backlog', todo: 'To Do', inprogress: 'In Progress' };
             box.innerHTML = list.length ? list.map((t, i) =>
-                `<div class="${i === depHighlight ? 'hl' : ''}" data-id="${t.id}"><span>${escapeHTML(t.title)}</span><span class="dep-status">${names[t.status] || ''}</span></div>`).join('')
+                `<div class="${i === depHighlight ? 'hl' : ''}" data-id="${t.id}"><span>${escapeHTML(t.id)} ${escapeHTML(t.title)}</span><span class="dep-status">${names[t.status] || ''}</span></div>`).join('')
                 : '<div class="dep-empty">No matching open tasks</div>';
             box.style.display = '';
         }
@@ -1461,7 +1516,8 @@
                 if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.acceptanceCriteria = acceptanceCriteria; }
                 showToast('Task updated');
             } else {
-                appData.tasks.push({ id: generateId(), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
+                const proj = appData.projects.find(p => p.id === appData.activeProjectId);
+                appData.tasks.push({ id: formatTaskId(proj.key, proj.nextTaskNumber++), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();
@@ -1562,15 +1618,13 @@
                 idMap[p.id] = newId;
                 return { ...p, id: newId };
             });
-            const taskIdMap = {};
-            importedData.tasks.forEach(t => { taskIdMap[t.id] = generateId(); });
             const newTasks = importedData.tasks.map(t => ({
                 ...t,
-                id: taskIdMap[t.id],
                 acceptanceCriteria: t.acceptanceCriteria || [],
-                projectId: idMap[t.projectId] || t.projectId,
-                dependsOn: (t.dependsOn || []).map(id => taskIdMap[id]).filter(Boolean)
+                projectId: idMap[t.projectId] || t.projectId
             }));
+            // keep imported IDs where the project key survived, otherwise renumber (dependencies are remapped)
+            ensureTaskIds(newProjects, newTasks, appData.projects.map(p => p.key));
 
             appData.projects = appData.projects.concat(newProjects);
             appData.tasks = appData.tasks.concat(newTasks);

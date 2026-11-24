@@ -8,7 +8,7 @@ This repository holds the JSON export of a Kanban tool. Your job is to **add tas
 {
   "version": 1,
   "exported": "<ISO 8601 UTC timestamp>",
-  "projects": [ { "id": "...", "name": "..." } ],
+  "projects": [ { "id": "...", "name": "...", "key": "XX", "nextTaskNumber": 1 } ],
   "tasks": [ { ...task... } ]
 }
 ```
@@ -16,7 +16,7 @@ This repository holds the JSON export of a Kanban tool. Your job is to **add tas
 - **Starting file:** Initially, use `flowboard-empty.json` (an empty export with no projects and no tasks). Ask for the project and start adding tasks. 
 - **Naming:** Store it under a new name in the format `flowboard-vNN.json`, where NN is a two-digit version number starting with `flowboard-v01.json`. Rename (move) the file, don't copy it, so `flowboard-empty.json` no longer exists.
 - **After that:** Always keep using the same file and edit it **in place**. Never create a separate import file, and never switch to another file. Always increase the version number for each edit by renaming the file (`v01` → `v02` → …), so only one flowboard file exists at any time.
-- Do not change `version` or any existing task. `projects` stays unchanged, except that when it is empty you add the project the user confirms (default: Data Lakehouse).
+- Do not change `version` or any existing task. `projects` stays unchanged, except that (a) when it is empty you add the project the user confirms (default: Data Lakehouse, key `DL`, `nextTaskNumber` 1) and (b) you bump `nextTaskNumber` when adding tasks.
 - Update `exported` to the current UTC time (e.g. `2026-11-19T09:30:00.000Z`) whenever you add tasks.
 - Keep the file valid JSON: 2-space indentation, double quotes, no trailing commas, no comments.
 
@@ -26,7 +26,7 @@ Every task has exactly these fields, in this order:
 
 | Field | Type | Rule |
 |---|---|---|
-| `id` | string | Newly generated, unique (see "IDs") |
+| `id` | string | `<project key>-<nnn>`, e.g. `DL-014` (see "IDs") |
 | `projectId` | string | `id` of an entry in `projects` |
 | `title` | string | Short, imperative, no trailing period (e.g. `Install Kafka Cluster`) |
 | `desc` | string | 1–3 sentences stating **why** the task is needed and key constraints or decisions. Don't just repeat the title. |
@@ -43,14 +43,16 @@ Do not add fields that aren't listed here.
 
 ## IDs
 
-- Format: 19 characters, lowercase base36 (`0-9a-z`), starting with `mw`, like `mwlznfx09go3hdh9gzi`.
-- Generate a random one for every new task. Don't reuse a pattern or increment an existing ID.
-- Before saving, check that it doesn't match any existing project or task ID.
+- Format: `<KEY>-<nnn>`, where `KEY` is the `key` of the task's project (2–5 uppercase letters or digits) and `nnn` is a number padded to at least 3 digits, like `DL-014`.
+- Use the project's `nextTaskNumber` for each new task, then increment it by one. Numbers are never reused or renumbered.
+- Project keys never change, so task IDs are permanent and can safely be referenced in `dependsOn`.
+- Before saving, check that the ID doesn't match any existing task ID.
+- Because adding tasks updates `nextTaskNumber`, this is the one change you make to an existing project entry.
 
 ## Project
 
-- Default `projectId` is the existing project **Data Lakehouse** (`mwkxqpaph8kuvt0bsou`), unless the user names another project.
-- Never create a project or invent a `projectId`. If the user names a project that isn't in `projects`, ask.
+- Default `projectId` is the existing project **Data Lakehouse** (key `DL`), unless the user names another project.
+- Never invent a `projectId`. A new project needs the user's confirmation and a unique `key`. If the user names a project that isn't in `projects`, ask.
 
 ## Assignee
 
@@ -116,14 +118,14 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 
 ```json
 {
-  "id": "mwn4k2z8qv1r7t5c0ab",
-  "projectId": "mwkxqpaph8kuvt0bsou",
+  "id": "DL-015",
+  "projectId": "<id of the Data Lakehouse project>",
   "title": "Install Confluent Schema Registry on OpenShift",
   "desc": "Schema management is needed for the Kafka cluster on OpenShift. Confluent Schema Registry is to be deployed via its Helm chart rather than hand-written manifests.",
   "priority": "medium",
   "status": "backlog",
   "assignee": "Platform Engineer",
-  "dependsOn": ["mwkxr5vxikc4dkd8phe"],
+  "dependsOn": ["DL-003"],
   "tags": ["infrastructure"],
   "acceptanceCriteria": [
     { "text": "Schema Registry pods are running and healthy on OpenShift", "done": false },
