@@ -507,7 +507,7 @@
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-outline" onclick="closeTaskModal()">Cancel</button>
+                    <button type="button" class="btn btn-outline" onclick="closeTaskModal()">Cancel <kbd style="margin-left:4px;">Esc</kbd></button>
                     <button type="submit" class="btn btn-primary">Save Task <kbd style="margin-left:4px;background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.3);color:white;">↵</kbd></button>
                 </div>
             </form>
@@ -752,8 +752,9 @@
 
         function handleKeyDown(e) {
             if (e.key === 'Escape') {
-                // Task modal (add/edit details) is not closed by Esc; use the Cancel button
-                if (document.getElementById('taskModalOverlay').classList.contains('active')) return;
+                // An expanded dropdown (native select, datalist) swallows Esc itself to close just the list,
+                // and the dependency suggestions stop propagation, so Esc only reaches here when none is open.
+                if (e.defaultPrevented) return;
                 if (document.querySelector('.modal-overlay.active')) {
                     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
                     return;
