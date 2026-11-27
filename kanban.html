@@ -480,6 +480,12 @@
                         <label>Assignee <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
                         <input type="text" id="taskAssignee" list="assigneeList" placeholder="Who is working on this?">
                         <datalist id="assigneeList"></datalist>
+                        <select id="taskAssigneeSelect" style="display:none;"></select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label><span id="phaseLabel">Sprint Phase</span> <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                        <input type="text" id="taskSprintPhase" maxlength="40" placeholder="e.g. Sprint 1, Phase 2">
+                        <select id="taskSprintPhaseSelect" style="display:none;"></select>
                     </div>
                     <div class="form-group" style="flex:1;">
                         <label>Tags <span style="text-transform:none;font-weight:400;color:#9ca3af;">(press Enter or comma to add)</span></label>
@@ -501,7 +507,7 @@
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-outline" onclick="closeTaskModal()">Cancel <kbd style="margin-left:4px;">Esc</kbd></button>
+                    <button type="button" class="btn btn-outline" onclick="closeTaskModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Task <kbd style="margin-left:4px;background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.3);color:white;">↵</kbd></button>
                 </div>
             </form>
@@ -511,8 +517,9 @@
     <!-- Project Modal -->
     <div class="modal-overlay" id="projectModalOverlay">
         <div class="modal">
-            <h2>Create New Project</h2>
+            <h2 id="projectModalTitle">Create New Project</h2>
             <form id="projectForm" autocomplete="off">
+                <input type="hidden" id="projectEditId">
                 <div class="form-group">
                     <label>Project Name</label>
                     <input type="text" id="projectName" required placeholder="e.g. Website Redesign">
@@ -521,9 +528,28 @@
                     <label>Project Key <span style="font-weight:400;color:var(--text-muted)">(task IDs look like KEY-001)</span></label>
                     <input type="text" id="projectKey" required maxlength="5" pattern="[A-Za-z0-9]{2,5}" placeholder="e.g. WR" style="text-transform:uppercase;" title="2 to 5 letters or digits">
                 </div>
+                <div style="display:flex;gap:14px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Planning <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional)</span></label>
+                        <select id="projectPlanningUnit">
+                            <option value="">None</option>
+                            <option value="sprint">Sprints (sprint-1, sprint-2, …)</option>
+                            <option value="phase">Phases (phase-1, phase-2, …)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>How many?</label>
+                        <input type="number" id="projectPlanningCount" min="1" max="99" value="4" disabled>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Assignees <span style="text-transform:none;font-weight:400;color:#9ca3af;">(optional, one per line)</span></label>
+                    <textarea id="projectAssignees" rows="4" style="resize:vertical;" placeholder="e.g. Data Engineer&#10;Product Owner&#10;Alice"></textarea>
+                    <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">When set, tasks can only be assigned to these. Leave empty to allow any name.</div>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-outline" onclick="closeProjectModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Project</button>
+                    <button type="submit" class="btn btn-primary" id="projectSubmitBtn">Create Project</button>
                 </div>
             </form>
         </div>
@@ -639,7 +665,7 @@
         const COLUMNS = ['backlog', 'todo', 'inprogress', 'done'];
         let appData = { projects: [], tasks: [], activeProjectId: null };
         let selectedTaskId = null;
-        let filters = { assignee: [], priority: [], tag: [] };
+        let filters = { assignee: [], priority: [], tag: [], phase: [] };
         let dueFilter = { from: '', to: '' };
         let openFilter = null;
         let searchQuery = '';
@@ -726,6 +752,8 @@
 
         function handleKeyDown(e) {
             if (e.key === 'Escape') {
+                // Task modal (add/edit details) is not closed by Esc; use the Cancel button
+                if (document.getElementById('taskModalOverlay').classList.contains('active')) return;
                 if (document.querySelector('.modal-overlay.active')) {
                     document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
                     return;
@@ -870,7 +898,7 @@
                         <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
                     </div>
                     <span class="hide-on-collapse" style="overflow:hidden;text-overflow:ellipsis;flex:1;">${escapeHTML(proj.name)}</span>
-                    <button class="project-edit-btn hide-on-collapse" title="Rename" onclick="event.stopPropagation();quickRenameProject('${proj.id}')">
+                    <button class="project-edit-btn hide-on-collapse" title="Project settings" onclick="event.stopPropagation();openProjectModal('${proj.id}')">
                         <svg viewBox="0 0 24 24" style="width:11px;height:11px;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                     </button>
                 `;
@@ -880,21 +908,52 @@
         }
 
         // Filtered-out cards stay in the DOM (hidden) so drag/reorder sync never drops them.
+        // Searchable fields, usable as "field:text" (field name is case-insensitive)
+        const SEARCH_FIELDS = {
+            id: t => [t.id],
+            title: t => [t.title],
+            desc: t => [t.desc], description: t => [t.desc],
+            assignee: t => [t.assignee],
+            tag: t => t.tags, tags: t => t.tags,
+            dependson: t => t.dependsOn, depends: t => t.dependsOn, dep: t => t.dependsOn, deps: t => t.dependsOn,
+            ac: t => (t.acceptanceCriteria || []).map(c => c.text),
+            criteria: t => (t.acceptanceCriteria || []).map(c => c.text),
+            priority: t => [t.priority],
+            status: t => [t.status],
+            due: t => [t.dueDate], duedate: t => [t.dueDate],
+            estimate: t => [t.estimate],
+            phase: t => [t.sprintPhase], sprintphase: t => [t.sprintPhase]
+        };
+        function matchesSearch(task, query) {
+            const norm = v => String(v).toLowerCase().replace(/\s+/g, ' ');
+            let q = norm(query).trim();
+            let values;
+            const m = q.match(/^([a-z]+):\s*(.*)$/);
+            if (m && SEARCH_FIELDS[m[1]]) {
+                values = SEARCH_FIELDS[m[1]](task);
+                q = m[2];
+            } else {
+                values = [task.id, ...(task.dependsOn || []), task.title, task.desc, task.assignee, ...(task.tags || []), ...(task.acceptanceCriteria || []).map(c => c.text)];
+            }
+            const hay = (values || []).filter(Boolean).map(norm).join('\n');
+            if (/[*?]/.test(q)) {
+                // * = any characters, ? = exactly one character; matches anywhere in the text
+                return new RegExp(q.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^\\n]*').replace(/\?/g, '[^\\n]')).test(hay);
+            }
+            return hay.includes(q);
+        }
+
         function matchesFilter(task) {
             if (filters.priority.length && !filters.priority.includes(task.priority)) return false;
             if (filters.tag.length && !(task.tags || []).some(t => filters.tag.includes(t))) return false;
+            if (filters.phase.length && !filters.phase.includes(task.sprintPhase || '__none__')) return false;
             if (filters.assignee.length && !filters.assignee.includes(task.assignee || '__none__')) return false;
             if (dueFilter.from || dueFilter.to) {
                 if (!task.dueDate) return false;
                 if (dueFilter.from && task.dueDate < dueFilter.from) return false;
                 if (dueFilter.to && task.dueDate > dueFilter.to) return false;
             }
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase().replace(/\s+/g, ' ');
-                const hay = [task.id, task.title, task.desc, task.assignee, ...(task.tags || []), ...(task.acceptanceCriteria || []).map(c => c.text)]
-                    .filter(Boolean).join('\n').toLowerCase().replace(/\s+/g, ' ');
-                if (!hay.includes(q)) return false;
-            }
+            if (searchQuery && !matchesSearch(task, searchQuery)) return false;
             return true;
         }
 
@@ -904,14 +963,30 @@
             return [...set].sort((a, b) => a.localeCompare(b));
         }
 
-        const FILTER_LABELS = { assignee: 'assignees', priority: 'priorities', tag: 'tags' };
+        const FILTER_LABELS = { assignee: 'assignees', priority: 'priorities', tag: 'tags', phase: 'sprints/phases' };
+        function phaseFilterLabel() {
+            const project = appData.projects.find(p => p.id === appData.activeProjectId);
+            const unit = project && project.planningUnit;
+            return unit === 'sprint' ? 'sprints' : unit === 'phase' ? 'phases' : 'sprints/phases';
+        }
+        // The phase filter is only shown once at least one task in the project has a phase
+        function phaseFilterUsed() {
+            return appData.tasks.some(t => t.projectId === appData.activeProjectId && t.sprintPhase);
+        }
         const PRIORITY_NAMES = { high: '🔴 High', med: '🟡 Medium', low: '🟢 Low' };
 
         function filterOptions(key) {
             const projectTasks = appData.tasks.filter(t => t.projectId === appData.activeProjectId);
             if (key === 'priority') return [['high', PRIORITY_NAMES.high], ['med', PRIORITY_NAMES.med], ['low', PRIORITY_NAMES.low]];
             if (key === 'tag') return allProjectTags().map(t => [t, t]);
-            const names = [...new Set(projectTasks.filter(t => t.assignee).map(t => t.assignee))].sort((a, b) => a.localeCompare(b));
+            if (key === 'phase') {
+                const project = appData.projects.find(p => p.id === appData.activeProjectId);
+                const used = projectTasks.map(t => t.sprintPhase).filter(Boolean);
+                const all = [...new Set([...planningOptions(project), ...used])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                return [['__none__', 'No ' + phaseFilterLabel().replace(/s$/, '').replace('s/', '/')], ...all.map(v => [v, v])];
+            }
+            const proj = appData.projects.find(p => p.id === appData.activeProjectId);
+            const names = [...new Set([...((proj && proj.assignees) || []), ...projectTasks.filter(t => t.assignee).map(t => t.assignee)])].sort((a, b) => a.localeCompare(b));
             return [['__none__', 'Unassigned'], ...names.map(n => [n, n])];
         }
 
@@ -919,11 +994,12 @@
             const wrap = document.getElementById('filterDropdowns');
             wrap.innerHTML = '';
             Object.keys(FILTER_LABELS).forEach(key => {
+                if (key === 'phase' && !phaseFilterUsed()) { filters.phase = []; return; }
                 const options = filterOptions(key);
                 // drop selections that no longer exist (e.g. a tag was removed from every task)
                 filters[key] = filters[key].filter(v => options.some(o => o[0] === v));
                 const selected = filters[key];
-                const text = selected.length ? options.filter(o => selected.includes(o[0])).map(o => o[1]).join(', ') : `All ${FILTER_LABELS[key]}`;
+                const text = selected.length ? options.filter(o => selected.includes(o[0])).map(o => o[1]).join(', ') : `All ${key === 'phase' ? phaseFilterLabel() : FILTER_LABELS[key]}`;
                 const dd = document.createElement('div');
                 dd.className = 'filter-dd';
                 dd.innerHTML = `<button type="button" class="filter-dd-btn ${selected.length ? 'active' : ''}" data-toggle="${key}" title="Filter by ${key}"><span>${escapeHTML(text)}</span></button>` +
@@ -943,7 +1019,7 @@
         }
 
         function clearFilters() {
-            filters = { assignee: [], priority: [], tag: [] };
+            filters = { assignee: [], priority: [], tag: [], phase: [] };
             dueFilter = { from: '', to: '' };
             searchQuery = '';
             if (selectedTaskId) clearSelection();
@@ -1182,20 +1258,6 @@
             if (input.style.display !== 'none') commitProjectName();
         });
 
-        // sidebar rename via pencil icon
-        function quickRenameProject(projectId) {
-            const project = appData.projects.find(p => p.id === projectId);
-            if (!project) return;
-            const newName = prompt('Rename project:', project.name);
-            if (newName && newName.trim()) {
-                project.name = newName.trim();
-                saveData();
-                renderSidebar();
-                renderBoard();
-                showToast('Project renamed');
-            }
-        }
-
         // ─── Drag & Drop ────────────────────────────────────────────────
         let dragState = null;
 
@@ -1321,7 +1383,7 @@
         }
 
         function switchProject(projectId) {
-            clearSelection(); filters = { assignee: [], priority: [], tag: [] }; dueFilter = { from: '', to: '' }; searchQuery = ''; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
+            clearSelection(); filters = { assignee: [], priority: [], tag: [], phase: [] }; dueFilter = { from: '', to: '' }; searchQuery = ''; openFilter = null; appData.activeProjectId = projectId; saveData(); renderSidebar(); renderBoard();
         }
 
         function deleteCurrentProject() {
@@ -1345,12 +1407,31 @@
         }
 
         // ─── Modals ────────────────────────────────────────────────────
-        function openProjectModal() {
-            document.getElementById('projectForm').reset();
+        function openProjectModal(projectId = null) {
+            const form = document.getElementById('projectForm');
+            form.reset();
+            const project = projectId ? appData.projects.find(p => p.id === projectId) : null;
+            document.getElementById('projectEditId').value = project ? project.id : '';
+            document.getElementById('projectModalTitle').textContent = project ? 'Project Settings' : 'Create New Project';
+            document.getElementById('projectSubmitBtn').textContent = project ? 'Save' : 'Create Project';
+            const keyInput = document.getElementById('projectKey');
+            keyInput.disabled = !!project; // the key is part of every task ID, so it is fixed once created
+            if (project) {
+                document.getElementById('projectName').value = project.name;
+                keyInput.value = project.key;
+                document.getElementById('projectPlanningUnit').value = project.planningUnit || '';
+                if (project.planningCount) document.getElementById('projectPlanningCount').value = project.planningCount;
+                document.getElementById('projectAssignees').value = (project.assignees || []).join('\n');
+            }
+            syncPlanningCount();
             document.getElementById('projectModalOverlay').classList.add('active');
-            keyTouched = false;
+            keyTouched = !!project;
             setTimeout(() => document.getElementById('projectName').focus(), 150);
         }
+        function syncPlanningCount() {
+            document.getElementById('projectPlanningCount').disabled = !document.getElementById('projectPlanningUnit').value;
+        }
+        document.getElementById('projectPlanningUnit').addEventListener('change', syncPlanningCount);
         let keyTouched = false;
         document.getElementById('projectKey').addEventListener('input', () => { keyTouched = true; });
         document.getElementById('projectName').addEventListener('input', e => {
@@ -1362,18 +1443,74 @@
             e.preventDefault();
             const name = document.getElementById('projectName').value.trim();
             if (!name) return;
+            const planningUnit = document.getElementById('projectPlanningUnit').value;
+            const planningCount = planningUnit ? parseInt(document.getElementById('projectPlanningCount').value, 10) : 0;
+            if (planningUnit && !(planningCount >= 1 && planningCount <= 99)) { showToast('Enter a number between 1 and 99', 'warn'); return; }
+            const assignees = [...new Set(document.getElementById('projectAssignees').value.split('\n').map(a => a.trim()).filter(Boolean))];
+            const editId = document.getElementById('projectEditId').value;
+            if (editId) {
+                const project = appData.projects.find(p => p.id === editId);
+                if (!project) return;
+                Object.assign(project, { name, planningUnit, planningCount, assignees });
+                saveData(); closeProjectModal(); renderSidebar(); renderBoard();
+                showToast('Project updated');
+                return;
+            }
             const key = normalizeKey(document.getElementById('projectKey').value);
             if (key.length < 2) { showToast('Key must be 2-5 letters or digits', 'warn'); return; }
             if (appData.projects.some(p => p.key === key)) { showToast(`Key ${key} is already used by another project`, 'warn'); return; }
-            const newProject = { id: generateId(), name, key, nextTaskNumber: 1 };
+            const newProject = { id: generateId(), name, key, nextTaskNumber: 1, planningUnit, planningCount, assignees };
             appData.projects.push(newProject);
             appData.activeProjectId = newProject.id;
             saveData(); closeProjectModal(); renderSidebar(); renderBoard();
             showToast(`Project "${name}" created`);
         });
 
+        // The sprint/phase field is a dropdown when the project defines how many sprints/phases it has,
+        // otherwise free text. A stored value outside the list stays selectable so it isn't lost on save.
+        function planningOptions(project) {
+            return project && project.planningUnit && project.planningCount
+                ? Array.from({ length: project.planningCount }, (_, i) => `${project.planningUnit}-${i + 1}`) : [];
+        }
+        function renderPhaseField(value) {
+            const project = appData.projects.find(p => p.id === appData.activeProjectId);
+            const options = planningOptions(project);
+            const input = document.getElementById('taskSprintPhase'), select = document.getElementById('taskSprintPhaseSelect');
+            const unit = project && project.planningUnit;
+            document.getElementById('phaseLabel').textContent = unit === 'sprint' ? 'Sprint' : unit === 'phase' ? 'Phase' : 'Sprint Phase';
+            input.style.display = options.length ? 'none' : '';
+            select.style.display = options.length ? '' : 'none';
+            input.value = value;
+            select.innerHTML = '<option value="">—</option>' + options.map(o => `<option value="${o}">${o}</option>`).join('') +
+                (value && !options.includes(value) ? `<option value="${escapeHTML(value)}">${escapeHTML(value)} (not in list)</option>` : '');
+            select.value = value;
+        }
+        // The assignee field is a dropdown when the project defines its assignees, otherwise free text
+        // with autocomplete from names already used. A stored value outside the list stays selectable.
+        function renderAssigneeField(value) {
+            const project = appData.projects.find(p => p.id === appData.activeProjectId);
+            const list = (project && project.assignees) || [];
+            const input = document.getElementById('taskAssignee'), select = document.getElementById('taskAssigneeSelect');
+            input.style.display = list.length ? 'none' : '';
+            select.style.display = list.length ? '' : 'none';
+            input.value = value;
+            select.innerHTML = '<option value="">Unassigned</option>' + list.map(n => `<option value="${escapeHTML(n)}">${escapeHTML(n)}</option>`).join('') +
+                (value && !list.includes(value) ? `<option value="${escapeHTML(value)}">${escapeHTML(value)} (not in list)</option>` : '');
+            select.value = value;
+        }
+        function readAssigneeField() {
+            const select = document.getElementById('taskAssigneeSelect');
+            return (select.style.display === 'none' ? document.getElementById('taskAssignee') : select).value.trim();
+        }
+        function readPhaseField() {
+            const select = document.getElementById('taskSprintPhaseSelect');
+            return (select.style.display === 'none' ? document.getElementById('taskSprintPhase') : select).value.trim();
+        }
+
         function openTaskModal(taskId = null, defaultStatus = 'todo') {
             document.getElementById('taskForm').reset();
+            renderPhaseField(taskId ? (appData.tasks.find(t => t.id === taskId) || {}).sprintPhase || '' : '');
+            renderAssigneeField(taskId ? (appData.tasks.find(t => t.id === taskId) || {}).assignee || '' : '');
             const statusGroup = document.getElementById('statusGroup');
             if (taskId) {
                 document.getElementById('taskModalTitle').textContent = 'Edit Task';
@@ -1386,7 +1523,6 @@
                 document.getElementById('taskPriority').value = task.priority;
                 document.getElementById('taskStatus').value = task.status;
                 document.getElementById('taskEstimate').value = task.estimate || '';
-                document.getElementById('taskAssignee').value = task.assignee || '';
                 document.getElementById('taskDueDate').value = task.dueDate || '';
                 document.getElementById('taskCreatedDate').textContent = task.createdDate || '';
                 document.getElementById('createdGroup').style.display = task.createdDate ? 'block' : 'none';
@@ -1529,9 +1665,10 @@
             const desc = document.getElementById('taskDesc').value.trim();
             const priority = document.getElementById('taskPriority').value;
             const status = document.getElementById('taskStatus').value;
-            const assignee = document.getElementById('taskAssignee').value.trim();
+            const assignee = readAssigneeField();
             const dueDate = document.getElementById('taskDueDate').value;
             const estimate = document.getElementById('taskEstimate').value.trim();
+            const sprintPhase = readPhaseField();
             addTag(document.getElementById('taskTagInput').value); document.getElementById('taskTagInput').value = '';
             const tags = [...editingTags];
             const dependsOn = [...editingDeps];
@@ -1540,11 +1677,11 @@
             const acceptanceCriteria = editingAC.map(c => ({ text: c.text.trim(), done: c.done })).filter(c => c.text);
             if (id) {
                 const task = appData.tasks.find(t => t.id === id);
-                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.estimate = estimate; task.acceptanceCriteria = acceptanceCriteria; }
+                if (task) { task.title = title; task.desc = desc; task.priority = priority; task.status = status; task.assignee = assignee; task.dependsOn = dependsOn; task.tags = tags; task.dueDate = dueDate; task.estimate = estimate; task.sprintPhase = sprintPhase; task.acceptanceCriteria = acceptanceCriteria; }
                 showToast('Task updated');
             } else {
                 const proj = appData.projects.find(p => p.id === appData.activeProjectId);
-                appData.tasks.push({ id: formatTaskId(proj.key, proj.nextTaskNumber++), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, estimate, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
+                appData.tasks.push({ id: formatTaskId(proj.key, proj.nextTaskNumber++), projectId: appData.activeProjectId, title, desc, priority, status, assignee, dependsOn, tags, dueDate, estimate, sprintPhase, acceptanceCriteria, createdDate: new Date().toLocaleDateString('sv') });
                 showToast('Task added');
             }
             saveData(); closeTaskModal(); renderBoard();

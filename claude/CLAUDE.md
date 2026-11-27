@@ -8,7 +8,7 @@ This repository holds the JSON export of a Kanban tool. Your job is to **add tas
 {
   "version": 1,
   "exported": "<ISO 8601 UTC timestamp>",
-  "projects": [ { "id": "...", "name": "...", "key": "XX", "nextTaskNumber": 1 } ],
+  "projects": [ { "id": "...", "name": "...", "key": "XX", "nextTaskNumber": 1, "planningUnit": "sprint", "planningCount": 4, "assignees": ["Data Engineer", "Product Owner"] } ],
   "tasks": [ { ...task... } ]
 }
 ```
@@ -16,7 +16,7 @@ This repository holds the JSON export of a Kanban tool. Your job is to **add tas
 - **Starting file:** Initially, use `flowboard-empty.json` (an empty export with no projects and no tasks). Ask for the project and start adding tasks. 
 - **Naming:** Store it under a new name in the format `flowboard-vNN.json`, where NN is a two-digit version number starting with `flowboard-v01.json`. Rename (move) the file, don't copy it, so `flowboard-empty.json` no longer exists.
 - **After that:** Always keep using the same file and edit it **in place**. Never create a separate import file, and never switch to another file. Always increase the version number for each edit by renaming the file (`v01` → `v02` → …), so only one flowboard file exists at any time.
-- Do not change `version`. Existing tasks may be changed only after asking the user first (see "Changing existing tasks"). `projects` stays unchanged, except that (a) when it is empty you add the project the user confirms (default: Data Lakehouse, key `DL`, `nextTaskNumber` 1) and (b) you bump `nextTaskNumber` when adding tasks.
+- Do not change `version`. Existing tasks may be changed only after asking the user first (see "Changing existing tasks"). `projects` stays unchanged, except that (a) when it is empty you add the project the user confirms (default: Data Lakehouse, key `DL`, `nextTaskNumber` 1, `planningUnit` `""`, `planningCount` 0) and (b) you bump `nextTaskNumber` when adding tasks.
 - Update `exported` to the current UTC time (e.g. `2026-11-19T09:30:00.000Z`) whenever you add tasks.
 - Keep the file valid JSON: 2-space indentation, double quotes, no trailing commas, no comments.
 
@@ -38,6 +38,7 @@ Every task has exactly these fields, in this order:
 | `acceptanceCriteria` | object[] | 2–5 testable criteria, each `{ "text": "...", "done": false }` (see "Acceptance criteria"). |
 | `dueDate` | string | Due date as `YYYY-MM-DD` (e.g. `2026-12-31`), or `""` if none. See "Due date". |
 | `estimate` | string | Effort estimate, max 20 characters, or `""` if none (see "Estimate"). |
+| `sprintPhase` | string | Sprint or phase the task is planned in, e.g. `sprint-2`, or `""` if none (see "Sprint phase"). |
 | `createdDate` | string | Today's date as `YYYY-MM-DD` (see "Created date"). |
 
 Do not add fields that aren't listed here.
@@ -57,7 +58,7 @@ Do not add fields that aren't listed here.
 
 ## Assignee
 
-Use one generic role per task, exactly as spelled below:
+If the task's project has a non-empty `assignees` array, use exactly one entry from it (exact spelling) and ignore the default list below. Never add to a project's `assignees` without the user's approval (it is a change to the project). If it is missing or empty, use one generic role per task, exactly as spelled below:
 
 - Data Engineer
 - Platform Engineer
@@ -65,6 +66,7 @@ Use one generic role per task, exactly as spelled below:
 - Data Analyst
 - Scrum Master
 - Product Owner
+- External
 
 If none fits clearly, ask the user instead of guessing. Use `""` only if the user explicitly says the task is unassigned.
 
@@ -106,6 +108,14 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 - Free text, max 20 characters, shown in the task dialog next to priority (e.g. `3d`, `16h`, `5 SP`). Use `""` if the user gives none. Never invent one.
 - Use the unit the user states; if they give a bare number, ask which unit. Don't convert between units.
 
+## Sprint phase
+
+- Each project defines how it plans via `planningUnit` (`"sprint"`, `"phase"` or `""` for none) and `planningCount` (how many, 1–99; `0` when `planningUnit` is `""`). Read these from the task's project.
+- If the project has a `planningUnit`, `sprintPhase` must be `"<planningUnit>-<n>"` with `n` from 1 to `planningCount`, lowercase, no padding (e.g. `sprint-2`, `phase-1`), or `""` for unplanned. Don't use any other spelling or a number above `planningCount`; if the user asks for one, ask whether they want to raise `planningCount` (that is a change to the project, so it needs their approval).
+- If the project has no `planningUnit`, use free text (max 40 characters) in the user's wording and reuse the spelling other tasks already use, or `""` if the user gives none.
+- Never invent a value; use `""` if the user doesn't say. The board shows it only in the task dialog (a dropdown when the project defines a planning unit), not on the cards.
+- This is separate from the `sprint-N` tag. Only add that tag if the user asks for it; the field is the place to record the plan.
+
 ## Created date
 
 - `createdDate` is the day the task is created, as `YYYY-MM-DD`. Always set it to today's date for new tasks; never ask the user for it.
@@ -127,7 +137,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
 2. Ask the user about anything unclear: ambiguous scope, missing role, unknown dependency, new tag, other project. Don't assume.
 3. Draft the new task objects following the rules above.
 4. Append them to the end of `tasks`, then update `exported`.
-5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, every `estimate` is a string of at most 20 characters, and every new task has `createdDate` set to today.
+5. Validate: the file parses as JSON, all IDs are unique, every `dependsOn` ID exists, every `status` is `"backlog"`, and every `assignee` is an allowed role, and every new task has 2–5 criteria with `done` set to `false`, every `dueDate` is `""` or a valid `YYYY-MM-DD` date, every `estimate` is a string of at most 20 characters, every `sprintPhase` is `""` or valid for its project (see "Sprint phase"), and every new task has `createdDate` set to today.
 6. Tell the user which tasks were added (title, ID, assignee, dependencies) and any approved changes to existing tasks. Don't paste the whole file.
 
 ## Example
@@ -150,6 +160,7 @@ Use 0–3 tags per task. If a task needs a tag that isn't listed, **ask the user
   ],
   "dueDate": "2026-12-15",
   "estimate": "3d",
+  "sprintPhase": "sprint-1",
   "createdDate": "2026-11-20"
 }
 ```
